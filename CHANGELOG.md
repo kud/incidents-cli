@@ -4,6 +4,38 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.3.0 — 2026-11-13
+
+### Highlights
+
+- A filter column beside the services doubles as the status tally, with a count bar per filter; `tab` moves focus between it and the list, and it narrows on terminals under 160 columns. ([34d9eaa](https://github.com/kud/incidents-cli/commit/34d9eaac30d3bb60723a2275efa57ddd83cbb23d))
+- The board is now the default view; press `v` to swap to the list. ([34d9eaa](https://github.com/kud/incidents-cli/commit/34d9eaac30d3bb60723a2275efa57ddd83cbb23d))
+- First load shows placeholder counts and shimmer rows instead of jumping around, and `r` keeps everything on screen while it refreshes. ([34d9eaa](https://github.com/kud/incidents-cli/commit/34d9eaac30d3bb60723a2275efa57ddd83cbb23d))
+- The detail page splits into Now and History panes, side by side from 150 columns and stacked below, with loading, refresh and empty-history states. ([1bfdf63](https://github.com/kud/incidents-cli/commit/1bfdf6307071d261a925c223d58b429a88f82b0e))
+- New `incidents watch` prints one line per status change, with `--exec` to run a command on each change and `--json` for scripting. ([c5f26e5](https://github.com/kud/incidents-cli/commit/c5f26e5e6207b66e2d5e311c6910ce5458015e68), [kud/incidents-cli#2](https://github.com/kud/incidents-cli/issues/2))
+
+### Fixes
+
+- Grid, list and footer text now start on the same column, and selection bands stop at the card edge. ([5a5a2ec](https://github.com/kud/incidents-cli/commit/5a5a2ecdfe5f0f5c2183a83958930bf40d6782cf))
+- Column widths and the list and preview split no longer shift as services answer, and the cursor stays at the top until you first move it. ([61268e5](https://github.com/kud/incidents-cli/commit/61268e5b4904dce646a8dc97690048a0f58473ab))
+
+### Documentation
+
+- The README shows the board and list views, with screenshots regenerated at a size that fits the full filter column. ([37911fb](https://github.com/kud/incidents-cli/commit/37911fb218bd938dbad8bd57270a48eb6534160d))
+
+### Security
+
+- Dependencies now resolve `minimatch` to v11, clearing a Dependabot alert. ([58d1165](https://github.com/kud/incidents-cli/commit/58d1165e9165e84d47bd698de6e655f782adbedf))
+
+<details>
+<summary>Internal (2 commits)</summary>
+
+- New worst-first app icon and refreshed board and detail screenshots.
+
+</details>
+
+---
+
 ## 0.2.0 — 2026-11-13
 
 ### Highlights
