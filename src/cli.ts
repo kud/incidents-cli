@@ -97,7 +97,9 @@ const interactive = async (
   const { render } = await import("ink")
   const { createElement } = await import("react")
   const { App } = await import("./ui/app.js")
-  const app = render(createElement(App, { source, initialDetail }))
+  const app = render(createElement(App, { source, initialDetail }), {
+    alternateScreen: true,
+  })
   await app.waitUntilExit()
   return 0
 }
