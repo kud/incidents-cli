@@ -1,0 +1,20 @@
+[
+  {
+    "arn": "arn:aws:health:me-central-1::event/x",
+    "status": "3",
+    "service_name": "Multiple services",
+    "region_name": "Middle East",
+    "summary": "Region availability",
+    "date": "1762000000",
+    "event_log": [{ "status": 3 }]
+  },
+  {
+    "arn": "arn:aws:health:eu-west-1::event/y",
+    "status": "2",
+    "service_name": "Compute",
+    "region_name": "Ireland",
+    "summary": "Increased errors",
+    "date": "1762000000",
+    "event_log": [{ "status": 1 }]
+  }
+]

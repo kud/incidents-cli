@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <item><title><![CDATA[Older incident]]></title><link>https://acme.example/i/1</link><pubDate>Mon, 02 Nov 2026 10:00:00 GMT</pubDate></item>
+  <item><title><![CDATA[Newest incident]]></title><link>https://acme.example/i/3</link><pubDate>Thu, 12 Nov 2026 10:00:00 GMT</pubDate></item>
+  <item><title><![CDATA[Middle incident]]></title><link>https://acme.example/i/2</link><pubDate>Fri, 06 Nov 2026 10:00:00 GMT</pubDate></item>
+</channel></rss>

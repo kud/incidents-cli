@@ -1,0 +1,20 @@
+{
+  "status": {
+    "indicator": "minor",
+    "description": "Partially Degraded Service"
+  },
+  "components": [
+    { "name": "API", "status": "degraded_performance" },
+    { "name": "Dashboard", "status": "operational" },
+    { "name": "Regions", "status": "operational", "group": true },
+    { "name": "Visit status.acme.example for more", "status": "operational" }
+  ],
+  "incidents": [
+    {
+      "name": "Elevated API errors",
+      "shortlink": "https://stspg.example/abc",
+      "started_at": "2026-01-01T10:00:00Z",
+      "impact": "minor"
+    }
+  ]
+}
