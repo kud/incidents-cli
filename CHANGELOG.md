@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.2.0 — 2026-11-13
+
+### Highlights
+
+- A new board view lays services out as cards; press `v` to switch between list and board, or set `view` in your config to start on the board. ([f2cee32](https://github.com/kud/incidents-cli/commit/f2cee3239dbb4faac6606c4c702b30832d251151))
+- Status tabs (`←→` or `tab`), `/` search and `z` to fold operational services help you find the broken thing quickly, and the cursor stays on the same service as you switch. ([1ac75dd](https://github.com/kud/incidents-cli/commit/1ac75ddcb9e1849c19f7f6c6a899b03d7634eafb))
+- Sort by status (worst first) or by name with `s`, or set `sort` in your config; name order never shifts as results load. ([7b7a4a3](https://github.com/kud/incidents-cli/commit/7b7a4a30bd3d3072ffb6270677cad69203ebc03f))
+
+### Fixes
+
+- The board's grid no longer drops services silently or overdraws its last line on short terminals; cards and grid now scroll, with a "↑↓ scroll" hint when content is offscreen. ([3a5f0db](https://github.com/kud/incidents-cli/commit/3a5f0db56d50fbf4d6b0ef9df6fdaddc80f13778))
+- The severity tally keeps a fixed worst-to-best order instead of changing with row order. ([dc1924f](https://github.com/kud/incidents-cli/commit/dc1924fba6947a88741a5d70f51c53fff1df0646))
+
+### Documentation
+
+- The README documents the new keys and config options, and adds a board screenshot alongside the overview and detail ones. ([fdddaef](https://github.com/kud/incidents-cli/commit/fdddaef27ca24b6c43e7251f9544c9044bad10cb))
+
+---
+
 ## 0.1.3 — 2026-11-13
 
 ### Highlights
