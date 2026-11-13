@@ -4,6 +4,30 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.4.0 — 2026-11-13
+
+### Highlights
+
+- Arrow keys now move across the board's cards in both directions, `←` from the first column reaches the filters, and `←→` cycle status filters in the list. ([eed00ef](https://github.com/kud/incidents-cli/commit/eed00ef58355babd6e668fbba90e7a404ddcfead))
+- The detail page scrolls within the terminal, so long histories are no longer cut off. ([eed00ef](https://github.com/kud/incidents-cli/commit/eed00ef58355babd6e668fbba90e7a404ddcfead))
+- Components on a busy status page are grouped by status, worst first, with per-status counts and "+N more" rows instead of one long wall. ([11dc24c](https://github.com/kud/incidents-cli/commit/11dc24cea758ca7145625da436b30e32907de975))
+- History comes from the incidents API, so a page with many planned windows no longer crowds out past incidents; upcoming maintenance is tracked and counted separately. ([63c249d](https://github.com/kud/incidents-cli/commit/63c249d8651bbcd1a7e0e1382d074382601fdc66))
+  - Past scheduled-maintenance windows no longer appear in a status page's history, because the incidents API leaves maintenance out; upcoming maintenance is still counted, and when its feed can't be read the count is left unknown (`upcoming: null` in `--json`) rather than shown as zero. ([8281a67](https://github.com/kud/incidents-cli/commit/8281a67ee53aea6b921175a8313882c1f97d4d48))
+
+### Documentation
+
+- New user documentation covers the interactive view, scripting and exit codes, watch mode and configuration. ([e47201e](https://github.com/kud/incidents-cli/commit/e47201e92f7deb98883161e6e8acc1974d7f21bb))
+- The README gets a redesigned header and a features list. ([98bce9d](https://github.com/kud/incidents-cli/commit/98bce9da782eef9ea6a0e5d2fd578af8f0dfe680))
+
+<details>
+<summary>Internal (2 commits)</summary>
+
+- Added the project homepage URL and bumped `@kud/ink-ui` to 0.44.1.
+
+</details>
+
+---
+
 ## 0.3.0 — 2026-11-13
 
 ### Highlights
