@@ -1,10 +1,31 @@
-<img src="https://raw.githubusercontent.com/kud/incidents-cli/main/assets/icon.svg" alt="incidents-cli icon" width="64" height="64" />
+<div align="center">
 
-# incidents-cli
+<img src="assets/icon.svg" width="128" alt="incidents-cli icon" />
 
-Which of the services you depend on are declaring trouble right now: vendor status pages in one terminal view.
+🚨
+
+# Incidents CLI
+
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)
+![npm](https://img.shields.io/npm/v/%40kud%2Fincidents-cli?style=flat-square&color=CB3837)
+![MIT](https://img.shields.io/badge/licence-MIT-22C55E?style=flat-square)
+
+**Which of the services you depend on are declaring trouble right now: vendor status pages in one terminal view**
+
+<a href="https://kud.io/projects/incidents-cli">Website</a> · <a href="https://kud.io/projects/incidents-cli/docs">Documentation</a>
+
+</div>
+
+## Features
 
 It reads each vendor's own status page, worst first, and tells you what they have **declared**. A green row is not proof your calls work; a page it cannot read is shown as `? unreadable` and counts as not green, never as fine.
+
+- **One view of every vendor** — a list worst first, or a board with a card per service in trouble and the healthy ones in a grid
+- **Honest about gaps** — an unreadable page is never shown as fine, and fails the exit code
+- **Watch mode** — polls every few minutes and prints a line, or runs a command, only when a status changes
+- **Scriptable** — `--json` on every form, meaningful exit codes, static output whenever there is no TTY
+- **Configurable** — 21 built-in services, plus any Statuspage, RSS feed or plain link you add
 
 ![The board: a filter column that doubles as the tally, a card per service in trouble, the healthy ones in a grid](assets/board.png)
 
@@ -182,3 +203,5 @@ npm test
 ## Licence
 
 MIT
+
+📚 **Full documentation → [incidents-cli/docs](https://kud.io/projects/incidents-cli/docs)**
