@@ -1,47 +1,11 @@
 import assert from "node:assert/strict"
-import { EventEmitter } from "node:events"
 import { describe, it } from "node:test"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
 import { mockSource } from "../src/source.js"
+import { terminal } from "./helpers.js"
 
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
-
-// A terminal of a chosen size: ink-testing-library fixes the width and leaves
-// the height unset, and the board's overflow only shows on a short window.
-const terminal = (columns: number, rows: number) => {
-  const stdout = Object.assign(new EventEmitter(), {
-    columns,
-    rows,
-    isTTY: true,
-    frame: "",
-    write(frame: string) {
-      stdout.frame = frame
-      return true
-    },
-  })
-  const stdin = Object.assign(new EventEmitter(), {
-    isTTY: true,
-    data: null as string | null,
-    setEncoding() {},
-    setRawMode() {},
-    resume() {},
-    pause() {},
-    ref() {},
-    unref() {},
-    read() {
-      const data = stdin.data
-      stdin.data = null
-      return data
-    },
-    press(data: string) {
-      stdin.data = data
-      stdin.emit("readable")
-      stdin.emit("data", data)
-    },
-  })
-  return { stdout, stdin }
-}
 
 const until = async (frame: () => string, pattern: RegExp) => {
   for (let waited = 0; waited < 3000 && !pattern.test(frame()); waited += 25)

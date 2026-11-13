@@ -1,0 +1,96 @@
+import assert from "node:assert/strict"
+import { describe, it } from "node:test"
+import { stripVTControlCharacters } from "node:util"
+import { render } from "ink"
+import { App } from "../src/ui/app.js"
+import { mockSource, type Source } from "../src/source.js"
+import { terminal } from "./helpers.js"
+
+const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
+
+const plain = (s: string) => stripVTControlCharacters(s)
+
+const until = async (frame: () => string, pattern: RegExp) => {
+  for (let waited = 0; waited < 3000 && !pattern.test(frame()); waited += 25)
+    await tick(25)
+  return frame()
+}
+
+const RIGHT = "\x1b[C"
+
+const open = (source: Source, columns = 140) => {
+  const { stdout, stdin } = terminal(columns, 34)
+  const app = render(<App source={source} />, {
+    stdout: stdout as unknown as NodeJS.WriteStream,
+    stdin: stdin as unknown as NodeJS.ReadStream,
+    debug: true,
+    patchConsole: false,
+    exitOnCtrlC: false,
+  })
+  return { app, stdin, frame: () => plain(stdout.frame) }
+}
+
+const selectedLine = (frame: string): string =>
+  frame.split("\n").find((line) => line.includes("❯")) ?? ""
+
+// The column of the divider between the list and the preview: the frame's
+// own left edge is the first rule on the line, the divider the second.
+const dividerAt = (line: string): number => [...line].indexOf("│", 1)
+
+describe("list overview", () => {
+  it("holds the divider in place as services answer and across tabs", async () => {
+    const { app, stdin, frame } = open(mockSource(20))
+    await until(frame, /❯/)
+    const loading = dividerAt(selectedLine(frame()))
+    assert.ok(loading > 0, frame())
+    await until(frame, /updated/)
+    const seen = new Set([loading, dividerAt(selectedLine(frame()))])
+    for (let i = 0; i < 7; i++) {
+      stdin.press(RIGHT)
+      await tick(40)
+      const line = selectedLine(frame())
+      if (line) seen.add(dividerAt(line))
+    }
+    assert.deepEqual([...seen], [loading])
+    app.unmount()
+  })
+
+  it("an empty tab keeps the column and says so on one line", async () => {
+    const { app, stdin, frame } = open(mockSource(5))
+    await until(frame, /updated/)
+    const width = dividerAt(selectedLine(frame()))
+    stdin.press("/")
+    for (const ch of "zzzz") {
+      await tick(20)
+      stdin.press(ch)
+    }
+    const empty = await until(frame, /Nothing to show here\./)
+    const line = empty.split("\n").find((l) => l.includes("Nothing to show"))!
+    assert.equal(dividerAt(line), width, empty)
+    app.unmount()
+  })
+
+  it("rows stop a gap short of the divider, skeletons included", async () => {
+    const { app, frame } = open(mockSource(40))
+    const loading = await until(frame, /█/)
+    const bar = loading.split("\n").find((l) => l.includes("█"))!
+    const chars = [...bar]
+    const at = dividerAt(bar)
+    assert.equal(chars.slice(at - 2, at).join(""), "  ", bar)
+    app.unmount()
+  })
+
+  it("lands on the worst service, not the config's first, when the sort arrives", async () => {
+    const base = mockSource(5)
+    const healthy = base.services.find((s) => s.name === "Sample Registry")!
+    const source = {
+      ...base,
+      services: [healthy, ...base.services.filter((s) => s !== healthy)],
+    }
+    const { app, frame } = open(source)
+    const done = await until(frame, /updated/)
+    assert.match(selectedLine(done), /Acme Cloud/)
+    assert.match(done, /1 of 21/)
+    app.unmount()
+  })
+})

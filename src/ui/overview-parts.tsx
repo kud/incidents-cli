@@ -107,6 +107,8 @@ export const Footer = ({ note }: { note: string | null }) => (
 
 export type OverviewProps = {
   rows: Row[]
+  // Every service, whatever the tab, search or fold left out.
+  all: Row[]
   cursor: number
   sorted: boolean
   sort: Sort

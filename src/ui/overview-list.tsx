@@ -139,6 +139,7 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
 
 export const ListOverview = ({
   rows,
+  all,
   cursor,
   sorted,
   sort,
@@ -149,16 +150,18 @@ export const ListOverview = ({
   const [ref, height] = useMeasuredHeight()
   const inner = columns - FRAME_SIDES
   const preview = columns >= PREVIEW_MIN
-  const nameW = widest(rows.map((r) => r.service.name))
+  // Columns are sized on every service, not the rows this tab shows, so the
+  // name and age hold still as the tab, search or fold changes.
+  const nameW = widest(all.map((r) => r.service.name))
   // A row carries the status as its glyph alone; the word is in the tabs and
   // the preview, so the name stays the first thing the eye lands on.
   const statusW = 1
-  const ageW = widest(rows.map((r) => ageText(r.record)))
+  const ageW = widest(all.map((r) => ageText(r.record)))
   const compsW = preview
     ? 0
     : Math.min(
         COMPONENTS_MAX,
-        widest(rows.map((r) => affected(r.record).join(", "))),
+        widest(all.map((r) => affected(r.record).join(", "))),
       )
   const fixed =
     MARK +
@@ -168,14 +171,14 @@ export const ListOverview = ({
     GAP +
     (compsW ? GAP + compsW : 0) +
     (ageW ? GAP + ageW : 0)
-  const titleRoom = widest(rows.map((r) => headline(r.record)))
+  // The split comes from the terminal alone: fitted to the titles, it moved
+  // as each service answered and again on every tab.
   const left = preview
-    ? Math.min(
-        fixed + titleRoom,
-        Math.max(Math.floor(inner * 0.5), inner - PREVIEW_ROOM - DIVIDER),
-      )
+    ? Math.max(Math.floor(inner * 0.5), inner - PREVIEW_ROOM - DIVIDER)
     : inner
-  const titleW = Math.max(0, left - fixed)
+  // Rows stop a gap short of the divider, as the preview starts a gap after it.
+  const rowW = preview ? left - GAP : left
+  const titleW = Math.max(0, rowW - fixed)
   const breaks = runBreaks(rows, sorted, sort)
 
   const lines: { key: string; node: ReactNode; holds?: number }[] = []
@@ -187,7 +190,7 @@ export const ListOverview = ({
       key: row.service.id,
       holds: i,
       node: (
-        <Box width={left} backgroundColor={active ? BAND : undefined}>
+        <Box width={rowW} backgroundColor={active ? BAND : undefined}>
           <Marker active={active} />
           <Text color={INK} bold>
             {pad(row.service.name, nameW + GAP)}

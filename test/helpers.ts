@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events"
 import { readFileSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
@@ -27,3 +28,39 @@ export const service = (over: Record<string, unknown> = {}) => ({
   aliases: [],
   ...over,
 })
+
+// A terminal of a chosen size: ink-testing-library fixes the width and leaves
+// the height unset, and the board's overflow only shows on a short window.
+export const terminal = (columns: number, rows: number) => {
+  const stdout = Object.assign(new EventEmitter(), {
+    columns,
+    rows,
+    isTTY: true,
+    frame: "",
+    write(frame: string) {
+      stdout.frame = frame
+      return true
+    },
+  })
+  const stdin = Object.assign(new EventEmitter(), {
+    isTTY: true,
+    data: null as string | null,
+    setEncoding() {},
+    setRawMode() {},
+    resume() {},
+    pause() {},
+    ref() {},
+    unref() {},
+    read() {
+      const data = stdin.data
+      stdin.data = null
+      return data
+    },
+    press(data: string) {
+      stdin.data = data
+      stdin.emit("readable")
+      stdin.emit("data", data)
+    },
+  })
+  return { stdout, stdin }
+}

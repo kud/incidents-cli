@@ -212,22 +212,34 @@ export const App = ({
   // The cursor holds a service, not a position: across the re-sort, a tab,
   // the fold, a search or a view switch it stays on the row it was on, and
   // only falls back to a position when that row has left the list.
+  // Until the cursor is first moved, though, it holds the top: nobody chose
+  // the first service in the config, and following it through the first
+  // sort dropped the selection into the middle of the list.
   const selected = useRef<string | null>(null)
+  const moved = useRef(false)
+  const lastCursor = useRef(cursor)
   const shape = visible.map((r) => r.service.id).join("\n")
   const lastShape = useRef(shape)
   useEffect(() => {
     if (lastShape.current !== shape) {
       lastShape.current = shape
-      const at = visible.findIndex((r) => r.service.id === selected.current)
+      const at = moved.current
+        ? visible.findIndex((r) => r.service.id === selected.current)
+        : 0
       if (at >= 0) {
         if (at !== cursor) setCursor(at)
+        lastCursor.current = at
+        selected.current = visible[at]?.service.id ?? null
         return
       }
       const fallback = Math.max(0, Math.min(cursor, visible.length - 1))
       if (fallback !== cursor) setCursor(fallback)
+      lastCursor.current = fallback
       selected.current = visible[fallback]?.service.id ?? null
       return
     }
+    if (cursor !== lastCursor.current) moved.current = true
+    lastCursor.current = cursor
     selected.current = visible[cursor]?.service.id ?? null
   }, [shape, cursor])
 
@@ -358,6 +370,7 @@ export const App = ({
     >
       <Overview
         rows={visible}
+        all={rows}
         cursor={cursor}
         sorted={sorted}
         sort={sort}
