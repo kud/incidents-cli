@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.1.2 — 2026-11-13
+
+### Fixes
+
+- The status bar no longer says "refreshing…" on the first load once one service has answered; it says "checking…" until the first full read finishes. ([d56c607](https://github.com/kud/incidents-cli/commit/d56c607014cbd5499322b5a0ab9b2fec8f87cf91))
+
+<details>
+<summary>Internal (1 commit)</summary>
+
+- Tests: the hanging-page fake keeps the event loop alive on Node 22, and the date assertion accepts both "13 Nov" and "Nov 13" locales. ([378f0fd](https://github.com/kud/incidents-cli/commit/378f0fd1d9176dbccf2d3fc2ee4b87328674cb01))
+
+</details>
+
+---
+
 ## 0.1.1 — 2026-11-13
 
 First complete release; 0.1.0 was published from an older tree.
