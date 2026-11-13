@@ -100,7 +100,11 @@ const OverviewRow = ({
   return (
     <SelectableRow active={active}>
       <Box width={statusWidth + GAP} flexShrink={0}>
-        <Text color={TONE[label.tone]}>{label.text}</Text>
+        {row.record ? (
+          <Text color={TONE[label.tone]}>{label.text}</Text>
+        ) : (
+          <Spinner label="checking" />
+        )}
       </Box>
       <Box width={nameWidth + GAP} flexShrink={0}>
         <Text bold={loud || active} wrap="truncate-end">
@@ -203,6 +207,11 @@ export const App = ({
   const [records, setRecords] = useState<Record<string, ServiceRecord>>({})
   const [loading, setLoading] = useState(true)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+  // Rows hold still while a read is in flight, each resolving in place, and
+  // take the worst-first order only once every service has answered.
+  const [order, setOrder] = useState<string[]>(() =>
+    source.services.map((s) => s.id),
+  )
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
   const [detailBusy, setDetailBusy] = useState(false)
   const loadRef = useRef<AbortController | null>(null)
@@ -222,7 +231,8 @@ export const App = ({
             [record.id]: keepHistory(prev[record.id], record),
           })),
       })
-      .then(() => {
+      .then((all) => {
+        setOrder(worstFirst(all).map((record) => record.id))
         setLoading(false)
         setUpdatedAt(new Date())
       })
@@ -257,17 +267,14 @@ export const App = ({
     }
   }, [])
 
-  const rows: Row[] = useMemo(() => {
-    const known = worstFirst(Object.values(records))
-    const pending = source.services.filter((s) => !(s.id in records))
-    return [
-      ...known.map((record) => ({
-        record,
-        service: source.services.find((s) => s.id === record.id) as Service,
-      })),
-      ...pending.map((service) => ({ service })),
-    ]
-  }, [records, source])
+  const rows: Row[] = useMemo(
+    () =>
+      order.flatMap((id) => {
+        const service = source.services.find((s) => s.id === id)
+        return service ? [{ service, record: records[id] }] : []
+      }),
+    [order, records, source],
+  )
 
   const { cursor } = useListCursor(rows.length, {
     vimKeys: true,
