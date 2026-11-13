@@ -32,6 +32,19 @@ const TILE = 46
 // A card's height: its border, then name, status, title and components.
 const TILE_LINES = 6
 
+// The tally reads worst first whatever order the rows are in, so sorting by
+// name never reshuffles the bar.
+const TALLY_ORDER = [
+  "critical",
+  "major",
+  "unknown",
+  "minor",
+  "maintenance",
+  "none",
+  "link",
+  "checking",
+]
+
 const Tally = ({ rows, width }: { rows: Row[]; width: number }) => {
   const counts = new Map<string, { label: Label; n: number; k: string }>()
   for (const r of rows) {
@@ -41,14 +54,16 @@ const Tally = ({ rows, width }: { rows: Row[]; width: number }) => {
   }
   const total = rows.length || 1
   let used = 0
-  const parts = [...counts.values()].map((c, i, all) => {
-    const cells =
-      i === all.length - 1
-        ? width - used
-        : Math.max(1, Math.round((c.n / total) * width))
-    used += cells
-    return { ...c, cells }
-  })
+  const parts = [...counts.values()]
+    .sort((a, b) => TALLY_ORDER.indexOf(a.k) - TALLY_ORDER.indexOf(b.k))
+    .map((c, i, all) => {
+      const cells =
+        i === all.length - 1
+          ? width - used
+          : Math.max(1, Math.round((c.n / total) * width))
+      used += cells
+      return { ...c, cells }
+    })
   return (
     <Box flexDirection="column" paddingLeft={1} flexShrink={0}>
       <Text wrap="truncate-end">
@@ -157,7 +172,7 @@ const ClearGrid = ({
                 backgroundColor={active ? BAND : undefined}
               >
                 <Marker active={active} />
-                <Text color={INK} bold={active}>
+                <Text color={INK} bold>
                   {r.service.name}
                 </Text>
                 <Text>{"  "}</Text>
