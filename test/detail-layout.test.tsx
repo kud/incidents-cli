@@ -152,3 +152,77 @@ describe("detail page height", () => {
     })
   }
 })
+
+describe("components at scale", () => {
+  const many = {
+    ...mockRecord(acme, true),
+    components: [
+      ...Array.from({ length: 20 }, (_, i) => ({
+        name: `Maint ${String(i).padStart(2, "0")}`,
+        status: "under_maintenance",
+      })),
+      ...Array.from({ length: 12 }, (_, i) => ({
+        name: `Zone ${String(i).padStart(2, "0")}`,
+        status: i % 3 ? "partial_outage" : "degraded_performance",
+      })),
+      { name: "Core API", status: "major_outage" },
+      { name: "Edge", status: "operational" },
+    ],
+  }
+
+  it("leads with counts, worst first, and keeps maintenance apart", () => {
+    const { frame, app } = mount(
+      <Box width={160} flexDirection="column" height={44}>
+        <DetailBody record={many} width={156} height={44} />
+      </Box>,
+      160,
+      44,
+    )
+    const out = frame()
+    app.unmount()
+    assert.match(
+      out,
+      /33 affected · 1 outage · 8 partial · 4 degraded · 20 maintenance/,
+    )
+    const lines = out.split("\n")
+    const rows = lines.filter((l) =>
+      /^ {3}(outage|partial|degraded) /.test(l.split("│")[0]),
+    )
+    // Eight breakage rows, the outage first, then the rest counted.
+    assert.equal(rows.length, 8, out)
+    assert.match(rows[0], /outage\s+Core API/)
+    assert.match(out, /\+5 more/)
+    assert.match(out, /In maintenance/)
+    assert.match(out, /\+17 more/)
+    // Side by side: the history pane is still there.
+    assert.match(out, /History/)
+    assert.match(out, /Delayed webhook delivery/)
+  })
+
+  it("counts the rows it cuts, on the content column", () => {
+    const { frame, app } = mount(
+      <Box width={120} flexDirection="column" height={20}>
+        <DetailBody
+          record={mockRecord(
+            mockSource(1).services.find((s) => s.id === "harbour-ci")!,
+            true,
+          )}
+          width={116}
+          height={20}
+        />
+      </Box>,
+      120,
+      20,
+    )
+    const out = frame()
+    app.unmount()
+    const lines = out.split("\n")
+    const note = lines.find((l) => /more below/.test(l))!
+    // 18 rows of room, the last one the note: every row past it is counted.
+    assert.ok(Number(/(\d+) more below/.exec(note)![1]) > 17, note)
+    assert.equal(
+      note.search(/\d/),
+      lines.find((l) => /● ok/.test(l))!.indexOf("●"),
+    )
+  })
+})

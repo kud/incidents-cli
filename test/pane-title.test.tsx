@@ -23,7 +23,7 @@ describe("pane title", () => {
     assert.match(stripVTControlCharacters(out), /^ History {2}40/)
   })
 
-  it("leaves the unfocused title plain, in the text colour", () => {
+  it("leaves the unfocused title plain, in the terminal's foreground", () => {
     const { lastFrame, unmount } = render(
       <PaneTitle label="Now" focused={false} width={30} />,
     )
@@ -31,7 +31,8 @@ describe("pane title", () => {
     unmount()
     assert.ok(!out.includes("\u001b[48;"))
     assert.ok(!out.includes("\u001b[1m"))
-    assert.ok(out.includes("\u001b[38;2;230;230;235m"))
+    // The terminal's own foreground: no colour of its own.
+    assert.ok(!out.includes("\u001b[38;"))
     assert.match(stripVTControlCharacters(out), /^ Now/)
   })
 })

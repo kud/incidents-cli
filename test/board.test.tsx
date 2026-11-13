@@ -252,3 +252,29 @@ describe("board arrows", () => {
       assert.doesNotMatch(bodyOf(l), /❯/)
   })
 })
+
+describe("grid while loading", () => {
+  it("cuts a long name with an ellipsis rather than wrapping it", async () => {
+    const { stdout, stdin } = terminal(120, 40)
+    const app = render(<App source={{ ...mockSource(400), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    await until(frame, /checking/)
+    await tick(1500)
+    const out = frame()
+    app.unmount()
+    // Every name a line holds starts it: no name's second word on its own.
+    for (const name of NAMES.filter((n) => n.includes(" "))) {
+      const [, rest] = name.split(" ")
+      const alone = out
+        .split("\n")
+        .some((l) => new RegExp(`│\\s+${rest}\\s`).test(l) && !l.includes(name))
+      assert.ok(!alone, `${name} wrapped\n${out}`)
+    }
+  })
+})

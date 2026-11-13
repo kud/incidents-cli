@@ -104,7 +104,7 @@ export const FilterList = ({
         <Box key={item.id} flexDirection="column" flexShrink={0}>
           {breakBefore(i, items.length) ? <Text> </Text> : null}
           <Box backgroundColor={on && focused ? BAND : undefined}>
-            <Text color={focused ? colors.info : colors.muted}>
+            <Text color={focused ? colors.accent : colors.muted}>
               {on ? " ❯ " : "   "}
             </Text>
             <Text color={empty ? colors.muted : item.color}>

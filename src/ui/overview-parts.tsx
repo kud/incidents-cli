@@ -26,10 +26,10 @@ export const TONE: Record<Tone, string> = {
   muted: colors.muted,
 }
 
-// Every bold text names its foreground. Plain bold falls back to the
-// terminal's "bold colour", which in some themes is the warning orange, and a
-// screen of service names then reads as a wall of alarms.
-export const INK = "#E6E6EB"
+// Normal text takes the terminal's own foreground, so it reads on a light
+// theme as well as a dark one: a fixed near-white vanished on a light ground.
+// The cost is a theme with a custom "bold colour", whose bold names take it.
+export const INK: string | undefined = undefined
 export const SOFT = colors.secondary
 export const BAND = colors.selection
 export const FRAME_SIDES = 4
@@ -71,7 +71,7 @@ export const Marker = ({
   active: boolean
   focused?: boolean
 }) => (
-  <Text color={focused ? colors.info : colors.muted}>
+  <Text color={focused ? colors.accent : colors.muted}>
     {active ? "❯ " : "  "}
   </Text>
 )

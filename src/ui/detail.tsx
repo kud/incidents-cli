@@ -89,8 +89,7 @@ const grid = (
     return { text: "", spans }
   })
 
-// Every bold text names its foreground: plain bold takes the terminal's bold
-// colour, which some themes paint in the warning orange.
+// Headings are bold in the terminal's own foreground (see INK).
 const heading = (title: string, count?: number): StyledLine => ({
   text: "",
   spans: [
@@ -194,6 +193,42 @@ const historyFailedLines = (record: ServiceRecord): StyledLine[] =>
 
 // What is happening now: open incidents first, then the components they hit,
 // then a count of the ones that are fine.
+// Worst first, then by name: outage, partial, degraded, then maintenance,
+// which is planned work rather than breakage and reads as its own group.
+const RANK: Record<string, number> = {
+  major_outage: 0,
+  partial_outage: 1,
+  degraded_performance: 2,
+  under_maintenance: 4,
+}
+const byWorst = <T extends { name: string; status: string }>(list: T[]): T[] =>
+  [...list].sort(
+    (a, b) =>
+      (RANK[a.status] ?? 3) - (RANK[b.status] ?? 3) ||
+      a.name.localeCompare(b.name),
+  )
+// A status page can list dozens of components; the pane shows the worst few.
+const SHOWN = 8
+
+// "69 affected · 21 partial · 48 maintenance", each count in its status's
+// colour, for a page with more components than the pane shows.
+const summary = (sorted: { status: string }[]): StyledLine => {
+  const counts = new Map<string, number>()
+  for (const c of sorted) counts.set(c.status, (counts.get(c.status) ?? 0) + 1)
+  const spans: Span[] = [
+    { text: " ".repeat(EDGE) },
+    { text: `${sorted.length} affected`, bold: true, color: INK },
+  ]
+  for (const [status, n] of counts) {
+    const label = wordLabel(status)
+    spans.push(
+      { text: " · ", color: colors.muted },
+      { text: `${n} ${label.text}`, color: TONE[label.tone] },
+    )
+  }
+  return { text: "", spans }
+}
+
 const nowLines = (
   record: ServiceRecord,
   width: number,
@@ -201,10 +236,29 @@ const nowLines = (
   tailWidth: number,
 ): StyledLine[] => {
   const { broken, healthy } = split(record)
-  const affected = broken.map((c) => ({
+  const row = (c: { name: string; status: string }) => ({
     lead: tone(wordLabel(c.status)),
     body: { text: c.name, color: INK },
-  }))
+  })
+  const sorted = byWorst(broken)
+  const breaking = sorted.filter((c) => c.status !== "under_maintenance")
+  const resting = sorted.filter((c) => c.status === "under_maintenance")
+  // At scale, one line of counts leads and the headings drop theirs.
+  const scale = broken.length > SHOWN
+  const group = (
+    title: string,
+    list: typeof broken,
+    shown: number,
+  ): StyledLine[] =>
+    list.length
+      ? [
+          heading(title, scale ? undefined : list.length),
+          ...grid(list.slice(0, shown).map(row), width, leadWidth, tailWidth),
+          ...(list.length > shown
+            ? [quiet(`+${list.length - shown} more`, ROW)]
+            : []),
+        ]
+      : []
   const open = record.active.map((i) => ({
     lead: tone(wordLabel(i.impact)),
     body: { text: i.title, bold: true, color: INK },
@@ -219,12 +273,13 @@ const nowLines = (
       heading("Open incidents", open.length),
       ...grid(open, width, leadWidth, tailWidth),
     ])
-  if (affected.length)
-    sections.push([
-      heading("Affected components", affected.length),
-      ...grid(affected, width, leadWidth, tailWidth),
-      ...(healthy > 0 ? [plain(`${healthy} more operational`, ROW)] : []),
-    ])
+  if (scale) sections.push([summary(sorted)])
+  const hit = group("Affected components", breaking, SHOWN)
+  if (hit.length) sections.push(hit)
+  const rest = group("In maintenance", resting, breaking.length ? 3 : SHOWN)
+  if (rest.length) sections.push(rest)
+  if (broken.length && healthy > 0)
+    sections.push([plain(`${healthy} more operational`)])
   else if (healthy > 0)
     sections.push([plain(`${healthy} components operational`)])
   return sections.flatMap((s, i) => (i ? [BLANK, ...s] : s))
@@ -269,9 +324,8 @@ const historyWidth = (record: ServiceRecord, at: number): number => {
   )
 }
 
-// A line the scroller shows, and whether it is an incident, so the note at
-// the cut counts incidents rather than lines.
-type Row = { line: StyledLine; entry?: boolean }
+// A line the scroller shows.
+type Row = { line: StyledLine }
 const rowsOf = (lines: StyledLine[]): Row[] => lines.map((line) => ({ line }))
 
 const historyRows = (
@@ -304,7 +358,7 @@ const historyRows = (
         0,
         tailWidth,
         at + 2,
-      ).map((line) => ({ line, entry: true })),
+      ).map((line) => ({ line })),
     )
   }
   return lines
@@ -414,9 +468,8 @@ const Scroller = ({
     },
     { isActive: isActive && !fits },
   )
-  const incidents = (part: Row[]) => part.filter((r) => r.entry).length
-  const above = incidents(rows.slice(0, top))
-  const below = incidents(rows.slice(top + room))
+  const above = top
+  const below = Math.max(0, rows.length - top - room)
   const note = [
     above ? `${above} more above` : "",
     below ? `${below} more below` : "",
@@ -513,7 +566,7 @@ export const DetailBody = ({
             <Scroller
               rows={sectionsRows(record, width, historyBusy)}
               height={room}
-              at={ROW + 2}
+              at={EDGE}
             />
           ) : (
             <PendingRows width={Math.min(48, width - EDGE)} />
@@ -543,7 +596,7 @@ export const DetailBody = ({
             width={right}
           >
             {history.length ? (
-              <Scroller rows={history} height={room} at={EDGE + 2} />
+              <Scroller rows={history} height={room} at={EDGE} />
             ) : !record || historyBusy ? (
               <PendingRows width={Math.min(60, right - EDGE)} rows={4} />
             ) : (

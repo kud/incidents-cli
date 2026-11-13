@@ -196,16 +196,25 @@ const GridLine = ({
           backgroundColor={active && focused ? BAND : undefined}
         >
           <Marker active={active} focused={focused} />
-          <Text color={INK} bold>
+          {/* A cell too narrow for its text cuts it with an ellipsis rather
+              than wrapping a name onto a second line. */}
+          <Text color={INK} bold wrap="truncate-end">
             {r.service.name}
           </Text>
           <Text>{"  "}</Text>
           {r.record ? (
-            <Text color={TONE[label.tone]}>{label.text}</Text>
+            <Text color={TONE[label.tone]} wrap="truncate-end">
+              {label.text}
+            </Text>
           ) : (
             <Spinner label="checking" />
           )}
-          {extra ? <Text color={INK}> {extra}</Text> : null}
+          {extra ? (
+            <Text color={INK} wrap="truncate-end">
+              {" "}
+              {extra}
+            </Text>
+          ) : null}
         </Box>
       )
     })}
