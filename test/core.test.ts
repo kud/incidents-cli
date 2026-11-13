@@ -334,12 +334,16 @@ describe("reading", () => {
   })
 
   it("times out a hanging page as unknown", async () => {
+    // A real hanging socket keeps the event loop alive; AbortSignal.timeout's
+    // timer is unref'd, so the fake has to hold a ref of its own.
     const hang: typeof fetch = ((_url: unknown, init?: RequestInit) =>
-      new Promise((_resolve, reject) =>
-        init?.signal?.addEventListener("abort", () =>
-          reject(init.signal?.reason),
-        ),
-      )) as typeof fetch
+      new Promise((_resolve, reject) => {
+        const socket = setInterval(() => {}, 1000)
+        init?.signal?.addEventListener("abort", () => {
+          clearInterval(socket)
+          reject(init.signal?.reason)
+        })
+      })) as typeof fetch
     const r = await readService(service(), { fetch: hang, timeout: 20 })
     assert.equal(r.indicator, "unknown")
     assert.match(r.description, /timed out/)

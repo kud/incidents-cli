@@ -62,7 +62,7 @@ describe("detail view", () => {
   it("right-aligns every time to one edge, open and past alike", () => {
     const lines = sectionsLines(busy, 120).map(text)
     const timed = lines.filter((l) =>
-      /(for \d+[mhd]|ago|\d{1,2} \w{3,4})$/.test(l),
+      /(for \d+[mhd]|ago|\d{1,2} \w{3,4}|\w{3,4} \d{1,2})$/.test(l),
     )
     assert.ok(timed.length >= 26)
     const edges = new Set(timed.map((l) => l.length))
