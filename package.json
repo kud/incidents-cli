@@ -33,6 +33,7 @@
     "type": "git",
     "url": "https://github.com/kud/incidents-cli"
   },
+  "homepage": "https://kud.io/projects/incidents-cli",
   "engines": {
     "node": ">=22"
   },
