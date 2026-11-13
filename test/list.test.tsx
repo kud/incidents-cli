@@ -4,7 +4,7 @@ import { stripVTControlCharacters } from "node:util"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
 import { mockSource, type Source } from "../src/source.js"
-import { terminal } from "./helpers.js"
+import { bodyOf, terminal } from "./helpers.js"
 
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
 
@@ -16,11 +16,12 @@ const until = async (frame: () => string, pattern: RegExp) => {
   return frame()
 }
 
-const RIGHT = "\x1b[C"
+const TAB = "\t"
+const DOWN = "\x1b[B"
 
-const open = (source: Source, columns = 140) => {
+const open = (source: Source, columns = 160) => {
   const { stdout, stdin } = terminal(columns, 34)
-  const app = render(<App source={source} />, {
+  const app = render(<App source={{ ...source, view: "list" }} />, {
     stdout: stdout as unknown as NodeJS.WriteStream,
     stdin: stdin as unknown as NodeJS.ReadStream,
     debug: true,
@@ -31,11 +32,13 @@ const open = (source: Source, columns = 140) => {
 }
 
 const selectedLine = (frame: string): string =>
-  frame.split("\n").find((line) => line.includes("❯")) ?? ""
+  frame.split("\n").find((line) => bodyOf(line).includes("❯")) ?? ""
 
 // The column of the divider between the list and the preview: the frame's
-// own left edge is the first rule on the line, the divider the second.
-const dividerAt = (line: string): number => [...line].indexOf("│", 1)
+// own left edge is the first rule on the line, the filter column's the
+// second, the divider the third.
+const dividerAt = (line: string): number =>
+  [...line].flatMap((c, i) => (c === "│" ? [i] : []))[2] ?? -1
 
 describe("list overview", () => {
   it("holds the divider in place as services answer and across tabs", async () => {
@@ -45,8 +48,10 @@ describe("list overview", () => {
     assert.ok(loading > 0, frame())
     await until(frame, /updated/)
     const seen = new Set([loading, dividerAt(selectedLine(frame()))])
+    stdin.press(TAB)
+    await tick(40)
     for (let i = 0; i < 7; i++) {
-      stdin.press(RIGHT)
+      stdin.press(DOWN)
       await tick(40)
       const line = selectedLine(frame())
       if (line) seen.add(dividerAt(line))
@@ -64,16 +69,16 @@ describe("list overview", () => {
       await tick(20)
       stdin.press(ch)
     }
-    const empty = await until(frame, /Nothing to show here\./)
-    const line = empty.split("\n").find((l) => l.includes("Nothing to show"))!
+    const empty = await until(frame, /Nothing in All right now/)
+    const line = empty.split("\n").find((l) => l.includes("Nothing in All"))!
     assert.equal(dividerAt(line), width, empty)
     app.unmount()
   })
 
   it("rows stop a gap short of the divider, skeletons included", async () => {
     const { app, frame } = open(mockSource(40))
-    const loading = await until(frame, /█/)
-    const bar = loading.split("\n").find((l) => l.includes("█"))!
+    const loading = await until(frame, /▀/)
+    const bar = loading.split("\n").find((l) => l.includes("▀"))!
     const chars = [...bar]
     const at = dividerAt(bar)
     assert.equal(chars.slice(at - 2, at).join(""), "  ", bar)

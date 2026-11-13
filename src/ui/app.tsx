@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Box, useInput, useWindowSize } from "ink"
+import { Box, Text, useInput, useWindowSize } from "ink"
 import {
   FilterBar,
   Page,
   Spinner,
-  Tabs,
   colors,
   useAppKeys,
   useFilterMode,
   useListCursor,
   useTabs,
-  type TabItem,
 } from "@kud/ink-ui"
 import { isClear, worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
@@ -21,6 +19,7 @@ import { ListOverview } from "./overview-list.js"
 import {
   FILTERS,
   glyphOf,
+  filterWidth,
   hiddenParts,
   narrow,
   navOrder,
@@ -30,6 +29,19 @@ import {
 import type { Sort } from "../sort.js"
 import type { View } from "../view.js"
 import { FRAME_SIDES, TONE } from "./overview-parts.js"
+import {
+  FilterList,
+  PaneTitle,
+  Rule,
+  type FilterItem,
+} from "./filter-column.js"
+
+// Which side Tab has put the keys on: the filter column or the body.
+type Focus = "filters" | "body"
+
+// Each row is the filter column, one space, the rule, two spaces, the body.
+const BEFORE_RULE = 1
+const AFTER_RULE = 2
 
 // SelectableRow's gutter, kept for the detail body's indent.
 const GUTTER = 4
@@ -68,34 +80,18 @@ const Detail = ({
     </Box>
   )
 
-const tabItems = (
-  counts: Record<FilterId, number>,
-  width: number,
-): TabItem<FilterId>[] => {
-  // The coloured status glyph rides in the marker, which never folds; when the
-  // strip will not fit, the glyph moves to the icon so the tabs can fold to it.
-  const strip = FILTERS.reduce(
-    (sum, f) => sum + f.name.length + String(counts[f.id]).length + 8,
-    0,
-  )
-  const fold = strip > width
-  return FILTERS.map((f) => {
+const filterItems = (counts: Record<FilterId, number>): FilterItem[] =>
+  FILTERS.map((f) => {
     const label =
       f.holds && f.id !== "trouble" ? statusLabel(f.holds.at(-1)!) : null
-    const glyph = label ? glyphOf(label) : f.id === "trouble" ? "▲" : "◇"
-    return fold
-      ? { value: f.id, label: f.name, count: counts[f.id], icon: glyph }
-      : {
-          value: f.id,
-          label: f.name,
-          count: counts[f.id],
-          marker: `${glyph} `,
-          markerColor: label
-            ? TONE[label.tone]
-            : (FILTER_TONE[f.id] ?? colors.muted),
-        }
+    return {
+      id: f.id,
+      name: f.name,
+      count: counts[f.id],
+      glyph: label ? glyphOf(label) : f.id === "trouble" ? "▲" : "◇",
+      color: label ? TONE[label.tone] : (FILTER_TONE[f.id] ?? colors.muted),
+    }
   })
-}
 
 export const App = ({
   source,
@@ -114,7 +110,8 @@ export const App = ({
     source.services.map((s) => s.id),
   )
   const [sorted, setSorted] = useState(false)
-  const [view, setView] = useState<View>(source.view ?? "list")
+  const [view, setView] = useState<View>(source.view ?? "board")
+  const [focus, setFocus] = useState<Focus>("body")
   const [sort, setSort] = useState<Sort>(source.sort ?? "status")
   const [folded, setFolded] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
@@ -194,19 +191,26 @@ export const App = ({
   const filterMode = useFilterMode({ isActive: atRoot })
   const { term, typing } = filterMode
   const searchCounts = narrow(rows, { filter: "all", folded: false, term })
-  const tabWidth = columns - FRAME_SIDES
-  const items = tabItems(searchCounts.counts, tabWidth)
-  const { active: tab = "all" } = useTabs(items, {
+  const items = filterItems(searchCounts.counts)
+  const tabs = items.map((item) => ({ value: item.id, label: item.name }))
+  // The app owns Tab and the arrows on the filter column, so the hook only
+  // keeps the active filter.
+  const { active: tab = "all", setActive } = useTabs(tabs, {
     initial: "all",
-    isActive: atRoot && !typing,
+    isActive: false,
   })
   const narrowed = narrow(rows, { filter: tab, folded, term })
-  const visible = navOrder(view, narrowed.rows)
-  const hidden = hiddenParts(narrowed.hidden, { filter: tab, term })
+  // Until the sort lands the board has no cards yet, so the walk is the grid.
+  const visible = sorted ? navOrder(view, narrowed.rows) : narrowed.rows
+  // An empty filter says so on its own line; the "outside" count would only
+  // repeat it.
+  const hidden = hiddenParts(narrowed.hidden, { filter: tab, term }).filter(
+    (p) => visible.length || p.key !== "tab",
+  )
 
   const { cursor, setCursor } = useListCursor(visible.length, {
     vimKeys: !typing,
-    isActive: atRoot,
+    isActive: atRoot && focus === "body",
   })
 
   // The cursor holds a service, not a position: across the re-sort, a tab,
@@ -273,6 +277,18 @@ export const App = ({
     if (typing) return
     if (input === "r") return detailId ? loadDetail(detailId) : load()
     if (!atRoot) return
+    if (key.tab) return setFocus((f) => (f === "filters" ? "body" : "filters"))
+    if (focus === "filters") {
+      const back = key.upArrow || input === "k"
+      const on = key.downArrow || input === "j"
+      if (back || on) {
+        const i = FILTERS.findIndex((f) => f.id === tab)
+        const n = (i + (on ? 1 : -1) + FILTERS.length) % FILTERS.length
+        return setActive(FILTERS[n].id)
+      }
+      if (key.return) return setFocus("body")
+      return
+    }
     if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
     if (input === "s")
       return setSort((s) => (s === "status" ? "name" : "status"))
@@ -288,7 +304,7 @@ export const App = ({
   const status = loading
     ? {
         text: updatedAt ? "↻ refreshing…" : "↻ checking…",
-        tone: "busy" as const,
+        tone: updatedAt ? ("quiet" as const) : ("busy" as const),
       }
     : updated
   const alert = trouble.length
@@ -328,6 +344,34 @@ export const App = ({
   }
 
   const Overview = view === "board" ? BoardOverview : ListOverview
+  const onFilters = focus === "filters"
+  const inner = columns - FRAME_SIDES
+  const filterW = filterWidth(columns)
+  const full = filterW > 8
+  const bodyW = Math.max(20, inner - filterW - BEFORE_RULE - 1 - AFTER_RULE)
+  const filterName = FILTERS.find((f) => f.id === tab)?.name ?? tab
+  // Collapsed, the column has no room for names, so the active one rides in
+  // the body's title.
+  const bodyTitle =
+    full || tab === "all" ? "Services" : `Services · ${filterName}`
+  const hints: [string, string][] = onFilters
+    ? [
+        ["↑↓", "filter"],
+        ["⏎", "go"],
+        ["tab", "services"],
+        ["/", "search"],
+        ["r", "refresh"],
+      ]
+    : [
+        ["↑↓", "move"],
+        ["⏎", "open"],
+        ["tab", "filters"],
+        ["/", "search"],
+        ["z", folded ? "show ok" : "fold ok"],
+        ["v", view === "list" ? "board" : "list"],
+        ["s", sort === "status" ? "by name" : "by status"],
+        ["r", "refresh"],
+      ]
   return (
     <Page
       fill
@@ -339,7 +383,6 @@ export const App = ({
       status={status}
       alert={alert}
       critical={critical}
-      tabs={<Tabs active={tab} items={items} width={tabWidth} />}
       filter={
         <FilterBar
           term={term}
@@ -353,30 +396,41 @@ export const App = ({
       }
       page="root"
       help={false}
-      hints={
-        typing
-          ? filterMode.hints
-          : [
-              ["↑↓", "move"],
-              ["⏎", "open"],
-              ["←→", "filter"],
-              ["/", "search"],
-              ["z", folded ? "show ok" : "fold ok"],
-              ["v", view === "list" ? "board" : "list"],
-              ["s", sort === "status" ? "by name" : "by status"],
-              ["r", "refresh"],
-            ]
-      }
+      hints={typing ? filterMode.hints : hints}
     >
-      <Overview
-        rows={visible}
-        all={rows}
-        cursor={cursor}
-        sorted={sorted}
-        sort={sort}
-        hidden={hidden}
-        note={source.note}
-      />
+      <Box flexDirection="row" flexGrow={1}>
+        <Box flexDirection="column" width={filterW} flexShrink={0}>
+          <PaneTitle label="Filters" focused={onFilters} width={filterW} />
+          <Text> </Text>
+          <FilterList
+            items={items}
+            active={tab}
+            focused={onFilters}
+            total={searchCounts.counts.all}
+            full={full}
+            settled={sorted}
+          />
+        </Box>
+        <Box width={BEFORE_RULE} flexShrink={0} />
+        <Rule />
+        <Box width={AFTER_RULE} flexShrink={0} />
+        <Box flexDirection="column" width={bodyW} flexShrink={0}>
+          <PaneTitle label={bodyTitle} focused={!onFilters} width={bodyW} />
+          <Text> </Text>
+          <Overview
+            rows={visible}
+            all={rows}
+            cursor={cursor}
+            sorted={sorted}
+            sort={sort}
+            hidden={hidden}
+            note={source.note}
+            width={bodyW}
+            focused={!onFilters}
+            empty={`Nothing in ${filterName} right now · tab to change filter`}
+          />
+        </Box>
+      </Box>
     </Page>
   )
 }

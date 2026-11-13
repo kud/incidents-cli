@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Box, Text, useWindowSize } from "ink"
+import { Box, Text } from "ink"
 import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
 import type { Tone } from "../labels.js"
@@ -15,7 +15,6 @@ import {
 import {
   BAND,
   Empty,
-  FRAME_SIDES,
   Footer,
   GAP,
   HiddenNote,
@@ -27,13 +26,15 @@ import {
   StatusCell,
   TONE,
   pad,
+  pendingWidth,
   useMeasuredHeight,
   widest,
   type OverviewProps,
 } from "./overview-parts.js"
 
-// From this many columns the selected service is read in full beside the list.
-export const PREVIEW_MIN = 120
+// From this many columns of pane the selected service is read in full beside
+// the list, which keeps everything but the preview's room.
+export const PREVIEW_MIN = 110
 const PREVIEW_ROOM = 52
 const DIVIDER = 4
 const COMPONENTS_MAX = 28
@@ -145,11 +146,13 @@ export const ListOverview = ({
   sort,
   hidden,
   note,
+  width,
+  focused,
+  empty,
 }: OverviewProps) => {
-  const { columns } = useWindowSize()
   const [ref, height] = useMeasuredHeight()
-  const inner = columns - FRAME_SIDES
-  const preview = columns >= PREVIEW_MIN
+  const inner = width
+  const preview = inner >= PREVIEW_MIN
   // Columns are sized on every service, not the rows this tab shows, so the
   // name and age hold still as the tab, search or fold changes.
   const nameW = widest(all.map((r) => r.service.name))
@@ -190,8 +193,11 @@ export const ListOverview = ({
       key: row.service.id,
       holds: i,
       node: (
-        <Box width={rowW} backgroundColor={active ? BAND : undefined}>
-          <Marker active={active} />
+        <Box
+          width={rowW}
+          backgroundColor={active && focused ? BAND : undefined}
+        >
+          <Marker active={active} focused={focused} />
           <Text color={INK} bold>
             {pad(row.service.name, nameW + GAP)}
           </Text>
@@ -213,12 +219,7 @@ export const ListOverview = ({
               ) : null}
             </>
           ) : (
-            <Pending
-              row={i}
-              width={
-                titleW + (compsW ? GAP + compsW : 0) + (ageW ? GAP + ageW : 0)
-              }
-            />
+            <Pending row={i} width={pendingWidth(titleW, i)} />
           )}
         </Box>
       ),
@@ -245,7 +246,7 @@ export const ListOverview = ({
           flexDirection="column"
           overflow="hidden"
         >
-          {rows.length ? null : <Empty />}
+          {rows.length ? null : <Empty text={empty} />}
           {lines.slice(start, start + room).map((l) => (
             <Box key={l.key}>{l.node}</Box>
           ))}

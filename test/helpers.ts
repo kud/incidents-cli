@@ -64,3 +64,8 @@ export const terminal = (columns: number, rows: number) => {
   })
   return { stdout, stdin }
 }
+
+// A frame line's body: what sits right of the filter column's rule, the
+// frame's own left edge being the first rule on the line.
+export const bodyOf = (line: string): string =>
+  line.split("│").slice(2).join("│")

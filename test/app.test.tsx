@@ -3,11 +3,12 @@ import { describe, it } from "node:test"
 import { render } from "ink-testing-library"
 import { App } from "../src/ui/app.js"
 import { mockSource } from "../src/source.js"
+import { bodyOf } from "./helpers.js"
 
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
 
 const selectedLine = (frame: string | undefined): string =>
-  (frame ?? "").split("\n").find((line) => line.includes("❯")) ?? ""
+  (frame ?? "").split("\n").find((line) => bodyOf(line).includes("❯")) ?? ""
 
 const until = async (frame: () => string | undefined, pattern: RegExp) => {
   for (
@@ -21,7 +22,9 @@ const until = async (frame: () => string | undefined, pattern: RegExp) => {
 
 describe("interactive view", () => {
   it("fills rows in as services answer, worst first", async () => {
-    const { lastFrame, unmount } = render(<App source={mockSource(5)} />)
+    const { lastFrame, unmount } = render(
+      <App source={{ ...mockSource(5), view: "list" }} />,
+    )
     await tick(300)
     const frame = lastFrame() ?? ""
     assert.match(frame, /Acme Cloud/)
@@ -34,7 +37,9 @@ describe("interactive view", () => {
   })
 
   it("enter opens a detail, esc comes back, q is the app's", async () => {
-    const { lastFrame, stdin, unmount } = render(<App source={mockSource(5)} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(5), view: "list" }} />,
+    )
     await tick(300)
     stdin.write("\r")
     const detail = await until(lastFrame, /Delayed webhook delivery/)
@@ -48,7 +53,10 @@ describe("interactive view", () => {
 
   it("opens straight on a service when asked", async () => {
     const { lastFrame, unmount } = render(
-      <App source={mockSource(5)} initialDetail="example-cdn" />,
+      <App
+        source={{ ...mockSource(5), view: "list" }}
+        initialDetail="example-cdn"
+      />,
     )
     await tick(300)
     assert.match(lastFrame() ?? "", /Edge cache/)
@@ -56,7 +64,9 @@ describe("interactive view", () => {
   })
 
   it("r refreshes without dropping the rows already on screen", async () => {
-    const { lastFrame, stdin, unmount } = render(<App source={mockSource(5)} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(5), view: "list" }} />,
+    )
     await tick(300)
     stdin.write("r")
     await tick(10)
@@ -66,7 +76,7 @@ describe("interactive view", () => {
 
   it("the cursor follows the service, not the row, across the re-sort", async () => {
     const { lastFrame, stdin, unmount } = render(
-      <App source={mockSource(15)} />,
+      <App source={{ ...mockSource(15), view: "list" }} />,
     )
     await tick(40)
     stdin.write("j")
@@ -81,7 +91,9 @@ describe("interactive view", () => {
   })
 
   it("z folds the healthy rows and says how to bring them back", async () => {
-    const { lastFrame, stdin, unmount } = render(<App source={mockSource(2)} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(2), view: "list" }} />,
+    )
     await until(lastFrame, /updated/)
     stdin.write("z")
     const frame = await until(lastFrame, /operational hidden/)
@@ -94,7 +106,9 @@ describe("interactive view", () => {
   })
 
   it("/ narrows by name, the tabs count what is left, esc clears", async () => {
-    const { lastFrame, stdin, unmount } = render(<App source={mockSource(2)} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(2), view: "list" }} />,
+    )
     await until(lastFrame, /updated/)
     stdin.write("/")
     await tick(30)
@@ -112,7 +126,9 @@ describe("interactive view", () => {
   })
 
   it("v switches to the board and back", async () => {
-    const { lastFrame, stdin, unmount } = render(<App source={mockSource(2)} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(2), view: "list" }} />,
+    )
     await until(lastFrame, /updated/)
     stdin.write("v")
     assert.match(await until(lastFrame, /v list/), /v list/)
@@ -136,16 +152,18 @@ describe("interactive view", () => {
   const isBlank = (line: string) => line.replace(/[│\s]/g, "") === ""
   const listLines = (frame: string): string[] => {
     const lines = frame.split("\n")
-    const from = lines.findIndex((l) => /^│\s+─/.test(l)) + 1
+    const from = lines.findIndex((l) => l.includes("Services")) + 1
     const to = lines.findIndex((l) => l.includes("Declared status only"))
-    const body = lines.slice(from, to)
+    const body = lines.slice(from, to).map(bodyOf)
     while (body.length && isBlank(body[0])) body.shift()
     while (body.length && isBlank(body.at(-1)!)) body.pop()
     return body
   }
 
   it("s sorts by name with no severity runs, and back to worst first", async () => {
-    const { lastFrame, stdin, unmount } = render(<App source={mockSource(2)} />)
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(2), view: "list" }} />,
+    )
     await until(lastFrame, /updated/)
     assert.ok(listLines(lastFrame() ?? "").some(isBlank))
     stdin.write("s")

@@ -3,7 +3,7 @@ import { describe, it } from "node:test"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
 import { mockSource } from "../src/source.js"
-import { terminal } from "./helpers.js"
+import { terminal, bodyOf } from "./helpers.js"
 
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
 
@@ -70,7 +70,7 @@ describe("board on a short window", () => {
       const selected =
         frame()
           .split("\n")
-          .find((l) => l.includes("❯")) ?? ""
+          .find((l) => bodyOf(l).includes("❯")) ?? ""
       const name = NAMES.find((n) => selected.includes(`❯ ${n}`))
       assert.ok(name, `step ${i}: no selected service on screen\n${frame()}`)
       reached.add(name)

@@ -1,6 +1,5 @@
-import { Box, Text, useWindowSize } from "ink"
+import { Box, Text } from "ink"
 import { Spinner, colors } from "@kud/ink-ui"
-import type { Label } from "../labels.js"
 import {
   affected,
   ageText,
@@ -14,7 +13,6 @@ import {
 import {
   BAND,
   Empty,
-  FRAME_SIDES,
   Footer,
   GAP,
   HiddenNote,
@@ -32,73 +30,16 @@ const TILE = 46
 // A card's height: its border, then name, status, title and components.
 const TILE_LINES = 6
 
-// The tally reads worst first whatever order the rows are in, so sorting by
-// name never reshuffles the bar.
-const TALLY_ORDER = [
-  "critical",
-  "major",
-  "unknown",
-  "minor",
-  "maintenance",
-  "none",
-  "link",
-  "checking",
-]
-
-const Tally = ({ rows, width }: { rows: Row[]; width: number }) => {
-  const counts = new Map<string, { label: Label; n: number; k: string }>()
-  for (const r of rows) {
-    const label = labelOf(r)
-    const k = r.record?.indicator ?? "checking"
-    counts.set(k, { label, n: (counts.get(k)?.n ?? 0) + 1, k })
-  }
-  const total = rows.length || 1
-  let used = 0
-  const parts = [...counts.values()]
-    .sort((a, b) => TALLY_ORDER.indexOf(a.k) - TALLY_ORDER.indexOf(b.k))
-    .map((c, i, all) => {
-      const cells =
-        i === all.length - 1
-          ? width - used
-          : Math.max(1, Math.round((c.n / total) * width))
-      used += cells
-      return { ...c, cells }
-    })
-  return (
-    <Box flexDirection="column" paddingLeft={1} flexShrink={0}>
-      <Text wrap="truncate-end">
-        {parts.map((p) => (
-          <Text key={p.k} color={TONE[p.label.tone]}>
-            {(p.k === "unknown" ? "▒" : p.k === "link" ? "░" : "█").repeat(
-              Math.max(0, p.cells),
-            )}
-          </Text>
-        ))}
-      </Text>
-      <Text>
-        {parts.map((p, i) => (
-          <Text key={p.k}>
-            {i ? <Text color={colors.muted}>{"   "}</Text> : null}
-            <Text color={TONE[p.label.tone]}>{glyphOf(p.label)} </Text>
-            <Text color={INK} bold>
-              {p.n}
-            </Text>
-            <Text color={SOFT}> {wordOf(p.label)}</Text>
-          </Text>
-        ))}
-      </Text>
-    </Box>
-  )
-}
-
 const Tile = ({
   row,
   active,
   width,
+  focused,
 }: {
   row: Row
   active: boolean
   width: number
+  focused: boolean
 }) => {
   const label = labelOf(row)
   const inner = width - 4
@@ -109,11 +50,13 @@ const Tile = ({
       height={TILE_LINES}
       flexDirection="column"
       borderStyle="round"
-      borderColor={active ? colors.info : colors.track}
+      borderColor={active ? (focused ? colors.info : SOFT) : colors.track}
       paddingX={1}
     >
       <Text color={INK} bold wrap="truncate-end">
-        {active ? <Text color={colors.info}>❯ </Text> : null}
+        {active ? (
+          <Text color={focused ? colors.info : colors.muted}>❯ </Text>
+        ) : null}
         {row.service.name}
       </Text>
       <Box justifyContent="space-between" width={inner}>
@@ -131,24 +74,35 @@ const Tile = ({
 }
 
 // Everything without a card, pending services included, as a grid of names
-// that reads at a glance. Each line holds as many cells as the widest fits.
+// that reads at a glance. The grid snaps to the card columns: a cell is one
+// card column wide, or two when its widest entry will not fit in one, so every
+// name starts under a card's left edge.
 const gridLines = (
   rows: Row[],
-  width: number,
+  inner: number,
+  tile: number,
+  perLine: number,
+  sorted: boolean,
 ): { cell: number; lines: Row[][] } => {
-  const cell =
+  const natural =
     MARK +
     widest(
       rows.map((r) => {
+        // Before the sort lands, the cell is sized on the names alone, so a
+        // service answering with a long title never reflows the grid; the
+        // cell clips it until then.
+        if (!sorted) return `${r.service.name}  ◌ checking`
         const extra = headline(r.record)
         return `${r.service.name}  ${glyphOf(labelOf(r))} ${r.record ? wordOf(labelOf(r)) : "checking"}${extra ? `  ${extra}` : ""}`
       }),
     ) +
     GAP
-  const perLine = Math.max(1, Math.floor(width / cell))
+  const span = Math.min(perLine, natural <= tile + 1 ? 1 : 2)
+  const cell = span * (tile + 1)
+  const across = Math.max(1, Math.floor((inner + 1) / cell))
   const lines: Row[][] = []
-  for (let i = 0; i < rows.length; i += perLine)
-    lines.push(rows.slice(i, i + perLine))
+  for (let i = 0; i < rows.length; i += across)
+    lines.push(rows.slice(i, i + across))
   return { cell, lines }
 }
 
@@ -157,11 +111,13 @@ const GridLine = ({
   first,
   cursor,
   cell,
+  focused,
 }: {
   line: Row[]
   first: number
   cursor: number
   cell: number
+  focused: boolean
 }) => (
   <Box flexShrink={0}>
     {line.map((r, j) => {
@@ -173,9 +129,10 @@ const GridLine = ({
           key={r.service.id}
           width={cell}
           flexShrink={0}
-          backgroundColor={active ? BAND : undefined}
+          overflow="hidden"
+          backgroundColor={active && focused ? BAND : undefined}
         >
-          <Marker active={active} />
+          <Marker active={active} focused={focused} />
           <Text color={INK} bold>
             {r.service.name}
           </Text>
@@ -270,15 +227,21 @@ export const BoardOverview = ({
   cursor,
   hidden,
   note,
+  sorted,
+  width,
+  focused,
+  empty,
 }: OverviewProps) => {
-  const { columns } = useWindowSize()
   const [ref, height] = useMeasuredHeight()
-  const inner = columns - FRAME_SIDES - 2
-  const cards = rows.filter(isCard)
-  const rest = rows.filter((r) => !isCard(r))
+  const inner = width
+  // Until every service has answered, all of them sit in the grid; trouble
+  // moves into cards in one step once the sort lands, so the frame never
+  // reshuffles service by service.
+  const cards = sorted ? rows.filter(isCard) : []
+  const rest = sorted ? rows.filter((r) => !isCard(r)) : rows
   const perLine = Math.max(1, Math.min(5, Math.floor((inner + 1) / (TILE + 1))))
   const tile = Math.floor((inner + 1) / perLine) - 1
-  const grid = gridLines(rest, inner)
+  const grid = gridLines(rest, inner, tile, perLine, sorted)
   const cardBands: Band[] = []
   for (let i = 0; i < cards.length; i += perLine)
     cardBands.push({
@@ -309,15 +272,8 @@ export const BoardOverview = ({
     shownCards.length < cardBands.length || shownGrid.length < gridBands.length
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Tally rows={rows} width={perLine * (tile + 1) - 2} />
-      <Box
-        ref={ref}
-        flexDirection="column"
-        flexGrow={1}
-        overflow="hidden"
-        marginTop={1}
-      >
-        {rows.length ? null : <Empty />}
+      <Box ref={ref} flexDirection="column" flexGrow={1} overflow="hidden">
+        {rows.length ? null : <Empty text={empty} />}
         {shownCards.map((band) => (
           <Box key={band.first} gap={1} flexShrink={0}>
             {cards.slice(band.first, band.first + band.size).map((card, j) => (
@@ -326,6 +282,7 @@ export const BoardOverview = ({
                 row={card}
                 active={band.first + j === cursor}
                 width={tile}
+                focused={focused}
               />
             ))}
           </Box>
@@ -350,6 +307,7 @@ export const BoardOverview = ({
             first={band.first}
             cursor={cursor}
             cell={grid.cell}
+            focused={focused}
           />
         ))}
         {hidden.length ? (

@@ -1,6 +1,12 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react"
 import { Box, Text, measureElement, type DOMElement } from "ink"
-import { SkeletonBar, Spinner, colors } from "@kud/ink-ui"
+import { Spinner, colors } from "@kud/ink-ui"
 import type { Tone } from "../labels.js"
 import type { Sort } from "../sort.js"
 import { visibleLength } from "../render.js"
@@ -55,8 +61,16 @@ export const useMeasuredHeight = (): [RefObject<DOMElement | null>, number] => {
   return [ref, height]
 }
 
-export const Marker = ({ active }: { active: boolean }) => (
-  <Text color={colors.info}>{active ? " ❯ " : "   "}</Text>
+export const Marker = ({
+  active,
+  focused = true,
+}: {
+  active: boolean
+  focused?: boolean
+}) => (
+  <Text color={focused ? colors.info : colors.muted}>
+    {active ? " ❯ " : "   "}
+  </Text>
 )
 
 // The status cell: glyph and word in the tone's colour, or the spinner while
@@ -74,12 +88,64 @@ export const StatusCell = ({ row, width }: { row: Row; width: number }) => {
   )
 }
 
-// Each pending row lags the one above it, so the shimmer runs down the list
-// instead of the bars pulsing as one slab.
+// A placeholder for a row that has not answered: a half-height bar, so a
+// column of them reads as lines of text rather than one solid slab. Each row
+// lags the one above it, so the shimmer runs down the list.
 const ROW_LAG = 2
+const FRAME_MS = 70
+const CREST = 3
+const LEAD = CREST + 3
+const REST = 10
+// Bars vary in length the way titles do, never past the title column.
+const SPREAD = [0.62, 0.44, 0.78, 0.52, 0.7, 0.4]
 
-export const Pending = ({ width, row = 0 }: { width: number; row?: number }) =>
-  width > 0 ? <SkeletonBar width={width} rowOffset={row * ROW_LAG} /> : null
+const moving = () =>
+  process.stdout?.isTTY === true &&
+  !process.env["NO_MOTION"] &&
+  !process.env["REDUCE_MOTION"]
+
+const shade = (cell: number, frame: number, cells: number, lag: number) => {
+  const travel = cells + LEAD * 2
+  const phase =
+    (((frame - lag) % (travel + REST)) + travel + REST) % (travel + REST)
+  if (phase >= travel) return colors.track
+  return Math.abs(cell - (phase - LEAD)) <= CREST
+    ? colors.trackHighlight
+    : colors.track
+}
+
+export const pendingWidth = (titleW: number, row: number): number =>
+  Math.max(1, Math.round(titleW * SPREAD[row % SPREAD.length]))
+
+export const Pending = ({
+  width,
+  row = 0,
+}: {
+  width: number
+  row?: number
+}) => {
+  const [frame, setFrame] = useState(0)
+  const live = moving()
+  useEffect(() => {
+    if (!live) return
+    const timer = setInterval(() => setFrame((f) => f + 1), FRAME_MS)
+    return () => clearInterval(timer)
+  }, [live])
+  if (width <= 0) return null
+  const cells = Math.floor(width)
+  return (
+    <Text>
+      {Array.from({ length: cells }, (_, i) => (
+        <Text
+          key={i}
+          color={live ? shade(i, frame, cells, row * ROW_LAG) : colors.track}
+        >
+          ▀
+        </Text>
+      ))}
+    </Text>
+  )
+}
 
 export const HiddenNote = ({ parts }: { parts: HiddenPart[] }) =>
   parts.length ? (
@@ -90,14 +156,16 @@ export const HiddenNote = ({ parts }: { parts: HiddenPart[] }) =>
     </Box>
   ) : null
 
-export const Empty = () => (
-  <Box paddingLeft={MARK}>
-    <Text color={SOFT}>Nothing to show here.</Text>
+export const Empty = ({ text }: { text: string }) => (
+  <Box paddingLeft={MARK} flexShrink={0}>
+    <Text color={colors.muted} wrap="truncate-end">
+      {text}
+    </Text>
   </Box>
 )
 
 export const Footer = ({ note }: { note: string | null }) => (
-  <Box flexDirection="column" marginTop={1} paddingLeft={MARK}>
+  <Box flexDirection="column" marginTop={1} flexShrink={0}>
     <Text color={colors.muted}>
       Declared status only: green is not proof your calls work.
     </Text>
@@ -114,4 +182,9 @@ export type OverviewProps = {
   sort: Sort
   hidden: HiddenPart[]
   note: string | null
+  // The pane's own width beside the filter column, whether it holds focus,
+  // and the line an empty filter shows in place of the rows.
+  width: number
+  focused: boolean
+  empty: string
 }

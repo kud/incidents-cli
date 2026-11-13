@@ -134,7 +134,7 @@ export const hiddenParts = (
         }
       : null,
     hidden.tab
-      ? { text: `${hidden.tab} outside ${name}`, key: "←→", action: "tabs" }
+      ? { text: `${hidden.tab} outside ${name}`, key: "tab", action: "filters" }
       : null,
     hidden.search
       ? {
@@ -201,3 +201,20 @@ export const runBreaks = (
   })
   return breaks
 }
+
+// The filter column beside the body. From FILTER_WIDE columns up it reads in
+// full: marker, glyph, name, count and a bar. Below, glyph and count only.
+export const FILTER_WIDE = 160
+export const FILTER_FULL = 28
+export const FILTER_SLIM = 8
+export const BAR_MAX = 7
+
+export const filterWidth = (columns: number): number =>
+  columns >= FILTER_WIDE ? FILTER_FULL : FILTER_SLIM
+
+// A filter's bar, in cells, against every service. "All" and an empty filter
+// draw none; anything else at least one, so a single outage still shows.
+export const barCells = (count: number, total: number, id: FilterId): number =>
+  id === "all" || count <= 0 || total <= 0
+    ? 0
+    : Math.max(1, Math.min(BAR_MAX, Math.round((count / total) * BAR_MAX)))
