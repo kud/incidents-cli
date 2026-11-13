@@ -27,6 +27,7 @@ import {
   type FilterId,
   type Row,
 } from "./overview-model.js"
+import type { Sort } from "../sort.js"
 import type { View } from "../view.js"
 import { FRAME_SIDES, TONE } from "./overview-parts.js"
 
@@ -114,6 +115,7 @@ export const App = ({
   )
   const [sorted, setSorted] = useState(false)
   const [view, setView] = useState<View>(source.view ?? "list")
+  const [sort, setSort] = useState<Sort>(source.sort ?? "status")
   const [folded, setFolded] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
   const [detailBusy, setDetailBusy] = useState(false)
@@ -171,13 +173,21 @@ export const App = ({
     }
   }, [])
 
+  // By name the order is known before anything answers, so it never moves.
+  const byName = useMemo(
+    () =>
+      [...source.services]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((s) => s.id),
+    [source],
+  )
   const rows: Row[] = useMemo(
     () =>
-      order.flatMap((id) => {
+      (sort === "name" ? byName : order).flatMap((id) => {
         const service = source.services.find((s) => s.id === id)
         return service ? [{ service, record: records[id] }] : []
       }),
-    [order, records, source],
+    [sort, byName, order, records, source],
   )
 
   const atRoot = detailId === null
@@ -252,6 +262,8 @@ export const App = ({
     if (input === "r") return detailId ? loadDetail(detailId) : load()
     if (!atRoot) return
     if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
+    if (input === "s")
+      return setSort((s) => (s === "status" ? "name" : "status"))
     if (input === "z") return setFolded((f) => !f)
     if (key.return && visible[cursor]) openDetail(visible[cursor].service.id)
   })
@@ -309,6 +321,7 @@ export const App = ({
       fill
       icon="◆"
       title="Incidents"
+      scope={sort === "status" ? "by status ↓" : "by name"}
       count={source.services.length}
       noun="service"
       status={status}
@@ -338,6 +351,7 @@ export const App = ({
               ["/", "search"],
               ["z", folded ? "show ok" : "fold ok"],
               ["v", view === "list" ? "board" : "list"],
+              ["s", sort === "status" ? "by name" : "by status"],
               ["r", "refresh"],
             ]
       }
@@ -346,6 +360,7 @@ export const App = ({
         rows={visible}
         cursor={cursor}
         sorted={sorted}
+        sort={sort}
         hidden={hidden}
         note={source.note}
       />

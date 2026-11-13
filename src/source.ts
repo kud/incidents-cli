@@ -5,6 +5,7 @@ import {
   type ServiceRecord,
 } from "./core/index.js"
 import type { Config } from "./config.js"
+import type { Sort } from "./sort.js"
 import type { View } from "./view.js"
 import { MOCK_SERVICES, mockRecord } from "./mock.js"
 
@@ -12,6 +13,7 @@ export interface Source {
   services: Service[]
   note: string | null
   view?: View
+  sort?: Sort
   readAll(opts: {
     signal?: AbortSignal
     onRecord?: (record: ServiceRecord) => void
@@ -35,6 +37,7 @@ export const liveSource = (
     services: Object.values(config.services),
     note,
     view: config.view,
+    sort: config.sort,
     readAll: ({ signal, onRecord }) =>
       readAll(Object.values(config.services), { ...shared, signal, onRecord }),
     readDetail: (service, { signal }) =>

@@ -82,5 +82,6 @@ describe("overview filters", () => {
   it("breaks between severity runs only once sorted", () => {
     assert.equal(runBreaks(rows, false).size, 0)
     assert.ok(runBreaks(rows, true).size > 0)
+    assert.equal(runBreaks(rows, true, "name").size, 0)
   })
 })

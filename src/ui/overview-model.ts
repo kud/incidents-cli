@@ -9,6 +9,7 @@ import { statusLabel, type Label } from "../labels.js"
 
 export type Row = { service: Service; record?: ServiceRecord }
 
+import type { Sort } from "../sort.js"
 import type { View } from "../view.js"
 
 export type FilterId =
@@ -186,10 +187,14 @@ export const affected = (r?: ServiceRecord): string[] =>
 
 // A blank line goes where the severity changes, but only once the rows hold
 // their sorted order: while they still sit in config order every row would
-// be its own run.
-export const runBreaks = (rows: Row[], sorted: boolean): Set<number> => {
+// be its own run. By name there are no runs to mark.
+export const runBreaks = (
+  rows: Row[],
+  sorted: boolean,
+  sort: Sort = "status",
+): Set<number> => {
   const breaks = new Set<number>()
-  if (!sorted) return breaks
+  if (!sorted || sort !== "status") return breaks
   rows.forEach((r, i) => {
     if (i && r.record?.indicator !== rows[i - 1].record?.indicator)
       breaks.add(i)

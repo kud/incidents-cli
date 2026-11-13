@@ -2,12 +2,12 @@ import { useLayoutEffect, useRef, useState, type RefObject } from "react"
 import { Box, Text, measureElement, type DOMElement } from "ink"
 import { SkeletonBar, Spinner, colors } from "@kud/ink-ui"
 import type { Tone } from "../labels.js"
+import type { Sort } from "../sort.js"
 import { visibleLength } from "../render.js"
 import {
   glyphOf,
   hiddenLine,
   labelOf,
-  wordOf,
   type HiddenPart,
   type Row,
 } from "./overview-model.js"
@@ -66,18 +66,20 @@ export const StatusCell = ({ row, width }: { row: Row; width: number }) => {
   return (
     <Box width={width} flexShrink={0}>
       {row.record ? (
-        <Text color={TONE[label.tone]}>
-          {glyphOf(label)} {wordOf(label)}
-        </Text>
+        <Text color={TONE[label.tone]}>{glyphOf(label)}</Text>
       ) : (
-        <Spinner label="checking" />
+        <Spinner />
       )}
     </Box>
   )
 }
 
-export const Pending = ({ width }: { width: number }) =>
-  width > 0 ? <SkeletonBar width={width} /> : null
+// Each pending row lags the one above it, so the shimmer runs down the list
+// instead of the bars pulsing as one slab.
+const ROW_LAG = 2
+
+export const Pending = ({ width, row = 0 }: { width: number; row?: number }) =>
+  width > 0 ? <SkeletonBar width={width} rowOffset={row * ROW_LAG} /> : null
 
 export const HiddenNote = ({ parts }: { parts: HiddenPart[] }) =>
   parts.length ? (
@@ -107,6 +109,7 @@ export type OverviewProps = {
   rows: Row[]
   cursor: number
   sorted: boolean
+  sort: Sort
   hidden: HiddenPart[]
   note: string | null
 }

@@ -29,7 +29,7 @@ describe("interactive view", () => {
     assert.ok(
       frame.indexOf("Placeholder Mail") < frame.indexOf("Brightgate Auth"),
     )
-    assert.match(frame, /● major/)
+    assert.match(frame, /Acme Cloud\s+● {2}Elevated API error rates/)
     unmount()
   })
 
@@ -128,6 +128,54 @@ describe("interactive view", () => {
     )
     await until(lastFrame, /updated/)
     assert.match(lastFrame() ?? "", /v list/)
+    unmount()
+  })
+
+  // The list's lines on screen, between the tabs and the footer, edge blanks
+  // trimmed: a blank left inside is a break between severity runs.
+  const isBlank = (line: string) => line.replace(/[│\s]/g, "") === ""
+  const listLines = (frame: string): string[] => {
+    const lines = frame.split("\n")
+    const from = lines.findIndex((l) => /^│\s+─/.test(l)) + 1
+    const to = lines.findIndex((l) => l.includes("Declared status only"))
+    const body = lines.slice(from, to)
+    while (body.length && isBlank(body[0])) body.shift()
+    while (body.length && isBlank(body.at(-1)!)) body.pop()
+    return body
+  }
+
+  it("s sorts by name with no severity runs, and back to worst first", async () => {
+    const { lastFrame, stdin, unmount } = render(<App source={mockSource(2)} />)
+    await until(lastFrame, /updated/)
+    assert.ok(listLines(lastFrame() ?? "").some(isBlank))
+    stdin.write("s")
+    const named = await until(lastFrame, /s by status/)
+    assert.match(named, /by name/)
+    assert.match(selectedLine(named), /Acme Cloud/)
+    assert.ok(!listLines(named).some(isBlank))
+    for (let i = 0; i < 20; i++) {
+      stdin.write("j")
+      await tick(10)
+    }
+    const end = await until(lastFrame, /21 of 21/)
+    assert.match(selectedLine(end), /Wicker Video/)
+    assert.ok(!listLines(end).some(isBlank))
+    stdin.write("s")
+    const back = await until(lastFrame, /s by name/)
+    assert.match(back, /by status ↓/)
+    assert.ok(listLines(back).some(isBlank))
+    unmount()
+  })
+
+  it("starts alphabetical when the source asks for it", async () => {
+    const { lastFrame, unmount } = render(
+      <App source={{ ...mockSource(2), sort: "name" }} />,
+    )
+    const frame = lastFrame() ?? ""
+    assert.ok(frame.indexOf("Acme Cloud") < frame.indexOf("Brightgate Auth"))
+    assert.ok(
+      frame.indexOf("Brightgate Auth") < frame.indexOf("Copperleaf Pay"),
+    )
     unmount()
   })
 })

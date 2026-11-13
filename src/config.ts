@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { load } from "js-yaml"
+import { isSort, type Sort } from "./sort.js"
 import { isView, type View } from "./view.js"
 import {
   ConfigError,
@@ -20,11 +21,13 @@ export interface Config {
   source: "default" | "file"
   path: string
   view: View
+  sort: Sort
 }
 
 interface ConfigFile {
   timeout?: number
   view?: unknown
+  sort?: unknown
   services?: RawServices
 }
 
@@ -56,8 +59,8 @@ const rejectReserved = (path: string, services: RawServices): void => {
   }
 }
 
-// The last file to set `view` wins, like `timeout`; a value that is neither
-// view is an error naming the file rather than a silent fallback.
+// The last file to set `view` or `sort` wins, like `timeout`; any other value
+// is an error naming the file rather than a silent fallback.
 const viewOf = (files: string[], parsed: ConfigFile[]): View => {
   let view: View = "list"
   parsed.forEach((file, i) => {
@@ -69,6 +72,19 @@ const viewOf = (files: string[], parsed: ConfigFile[]): View => {
     view = file.view
   })
   return view
+}
+
+const sortOf = (files: string[], parsed: ConfigFile[]): Sort => {
+  let sort: Sort = "status"
+  parsed.forEach((file, i) => {
+    if (file.sort === undefined) return
+    if (!isSort(file.sort))
+      throw new ConfigError(
+        `${files[i]}: sort must be status or name, not '${String(file.sort)}'`,
+      )
+    sort = file.sort
+  })
+  return sort
 }
 
 const filesFor = (env: NodeJS.ProcessEnv): string[] => {
@@ -107,6 +123,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
       source: "default",
       path: defaultConfigPath(env),
       view: "list",
+      sort: "status",
     }
   const parsed = files.map(readFile)
   parsed.forEach((file, i) => rejectReserved(files[i], file.services ?? {}))
@@ -125,6 +142,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
     source: "file",
     path: files[0],
     view: viewOf(files, parsed),
+    sort: sortOf(files, parsed),
   }
 }
 

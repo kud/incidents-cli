@@ -4,7 +4,6 @@ import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
 import type { Tone } from "../labels.js"
 import {
-  CHECKING,
   affected,
   ageText,
   headline,
@@ -142,6 +141,7 @@ export const ListOverview = ({
   rows,
   cursor,
   sorted,
+  sort,
   hidden,
   note,
 }: OverviewProps) => {
@@ -150,7 +150,9 @@ export const ListOverview = ({
   const inner = columns - FRAME_SIDES
   const preview = columns >= PREVIEW_MIN
   const nameW = widest(rows.map((r) => r.service.name))
-  const statusW = widest([CHECKING.text, ...rows.map((r) => labelOf(r).text)])
+  // A row carries the status as its glyph alone; the word is in the tabs and
+  // the preview, so the name stays the first thing the eye lands on.
+  const statusW = 1
   const ageW = widest(rows.map((r) => ageText(r.record)))
   const compsW = preview
     ? 0
@@ -174,27 +176,26 @@ export const ListOverview = ({
       )
     : inner
   const titleW = Math.max(0, left - fixed)
-  const breaks = runBreaks(rows, sorted)
+  const breaks = runBreaks(rows, sorted, sort)
 
   const lines: { key: string; node: ReactNode; holds?: number }[] = []
   rows.forEach((row, i) => {
     if (breaks.has(i)) lines.push({ key: `gap-${i}`, node: <Text> </Text> })
     const active = i === cursor
     const r = row.record
-    const loud = r !== undefined && !isClear(r.indicator)
     lines.push({
       key: row.service.id,
       holds: i,
       node: (
         <Box width={left} backgroundColor={active ? BAND : undefined}>
           <Marker active={active} />
-          <Text color={INK} bold={loud || active}>
+          <Text color={INK} bold>
             {pad(row.service.name, nameW + GAP)}
           </Text>
           <StatusCell row={row} width={statusW + GAP} />
           {r ? (
             <>
-              <Text color={loud ? INK : SOFT}>{pad(headline(r), titleW)}</Text>
+              <Text color={SOFT}>{pad(headline(r), titleW)}</Text>
               {compsW ? (
                 <Text color={SOFT}>
                   {"  "}
@@ -210,6 +211,7 @@ export const ListOverview = ({
             </>
           ) : (
             <Pending
+              row={i}
               width={
                 titleW + (compsW ? GAP + compsW : 0) + (ageW ? GAP + ageW : 0)
               }

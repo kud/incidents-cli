@@ -133,3 +133,32 @@ describe("config view", () => {
     )
   })
 })
+
+describe("config sort", () => {
+  it("defaults to status", () => {
+    const dir = home()
+    assert.equal(loadConfig(envFor(dir)).sort, "status")
+    write(dir, "config.yml", "services:\n  npm: {}\n")
+    assert.equal(loadConfig(envFor(dir)).sort, "status")
+  })
+
+  it("reads sort, a later drop-in winning", () => {
+    const dir = home()
+    write(dir, "config.yml", "sort: name\nservices:\n  npm: {}\n")
+    assert.equal(loadConfig(envFor(dir)).sort, "name")
+    write(dir, "config.d/10-status.yml", "sort: status\n")
+    assert.equal(loadConfig(envFor(dir)).sort, "status")
+  })
+
+  it("rejects any other sort, naming the file", () => {
+    const dir = home()
+    const path = write(dir, "config.yml", "sort: age\nservices:\n  npm: {}\n")
+    assert.throws(
+      () => loadConfig(envFor(dir)),
+      (error: unknown) =>
+        error instanceof ConfigError &&
+        error.message.includes(path) &&
+        /sort must be status or name, not 'age'/.test(error.message),
+    )
+  })
+})
