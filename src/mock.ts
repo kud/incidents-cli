@@ -200,3 +200,55 @@ export const mockRecord = (service: Service, detail = false): ServiceRecord => {
       })
   }
 }
+
+// A scenario for `watch --mock`: each poll moves one step, so services flip
+// between polls. Step 0 is the plain fixture set; step 1 brings Sample
+// Registry down and Placeholder Mail back; step 2 changes nothing; step 3
+// eases the registry to minor, clears Acme Cloud and loses Placeholder Mail
+// again; the next poll returns to step 0 and the cycle repeats.
+const SCENARIO: Record<string, (service: Service) => ServiceRecord>[] = [
+  {},
+  {
+    "sample-registry": (service) =>
+      record(service, {
+        indicator: "major",
+        description: "Major Service Outage",
+        components: [{ name: "Install", status: "major_outage" }],
+        active: [
+          {
+            title: "Package installs failing",
+            link: "https://status.sample-registry.example.com/incidents/r1",
+            date: ago(2),
+            impact: "major",
+          },
+        ],
+      }),
+    "placeholder-mail": (service) => record(service, {}),
+  },
+]
+SCENARIO.push(SCENARIO[1], {
+  "sample-registry": (service) =>
+    record(service, {
+      indicator: "minor",
+      description: "Partially Degraded Service",
+      components: [{ name: "Install", status: "degraded_performance" }],
+      active: [
+        {
+          title: "Package installs recovering",
+          link: "https://status.sample-registry.example.com/incidents/r1",
+          date: ago(12),
+          impact: "minor",
+        },
+      ],
+    }),
+  "acme-cloud": (service) =>
+    record(service, { description: "All Systems Operational" }),
+})
+
+export const mockWatchRecord = (
+  service: Service,
+  poll: number,
+): ServiceRecord => {
+  const step = SCENARIO[poll % SCENARIO.length]
+  return step[service.id]?.(service) ?? mockRecord(service)
+}

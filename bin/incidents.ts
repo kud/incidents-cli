@@ -2,8 +2,16 @@
 import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { Command } from "commander"
-import { list, open, run, services, type Flags } from "../src/cli.js"
+import { Command, Option } from "commander"
+import {
+  list,
+  open,
+  run,
+  services,
+  watch,
+  type Flags,
+  type WatchFlags,
+} from "../src/cli.js"
 
 const resolveVersion = (): string => {
   let dir = dirname(fileURLToPath(import.meta.url))
@@ -50,6 +58,23 @@ program
   .description("print configured service ids and aliases, one per line")
   .action((_flags: Flags, command: Command) =>
     run(() => services(command.optsWithGlobals(), version)),
+  )
+
+program
+  .command("watch")
+  .description(
+    "poll every few minutes and print one line per status change, never the interactive view",
+  )
+  .option("--interval <minutes>", "minutes between polls", "5")
+  .option(
+    "--exec <command>",
+    "run a shell command once per change, with the change as JSON on stdin",
+  )
+  .addOption(new Option("--interval-seconds <seconds>").hideHelp())
+  .addOption(new Option("--polls <count>").hideHelp())
+  .configureHelp({ showGlobalOptions: true })
+  .action((_flags: WatchFlags, command: Command) =>
+    run(() => watch(command.optsWithGlobals(), version)),
   )
 
 await program.parseAsync()

@@ -74,6 +74,7 @@ describe("registry", () => {
 
   it("rejects reserved words as an id or an alias", () => {
     assert.throws(() => selectServices({ list: {} }), /reserved/)
+    assert.throws(() => selectServices({ watch: {} }), /reserved/)
     assert.throws(
       () =>
         selectServices({

@@ -1,6 +1,7 @@
 export * from "./adapters.js"
 export * from "./age.js"
 export * from "./catalogue.js"
+export * from "./changes.js"
 export * from "./parse.js"
 export * from "./read.js"
 export * from "./registry.js"

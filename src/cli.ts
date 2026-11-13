@@ -8,7 +8,13 @@ import {
 } from "./core/index.js"
 import { canBeInteractive } from "./mode.js"
 import { renderDetail, renderOverview } from "./render.js"
-import { liveSource, mockSource, type Source } from "./source.js"
+import {
+  liveSource,
+  mockSource,
+  mockWatchSource,
+  type Source,
+} from "./source.js"
+import { watch as watchLoop } from "./watch.js"
 
 export interface Flags {
   json?: boolean
@@ -147,6 +153,57 @@ export const services = (flags: Flags, version: string): number => {
       .map((s) => [s.id, s.name, s.aliases.join(",")].join("\t"))
       .join("\n"),
   )
+  return 0
+}
+
+export interface WatchFlags extends Flags {
+  interval: string
+  intervalSeconds?: string
+  exec?: string
+  polls?: string
+}
+
+const positive = (value: string | undefined): number | null => {
+  if (value === undefined) return null
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : Number.NaN
+}
+
+export const watch = async (
+  flags: WatchFlags,
+  version: string,
+): Promise<number> => {
+  const minutes = positive(flags.interval)
+  const seconds = positive(flags.intervalSeconds)
+  const polls = positive(flags.polls)
+  if (Number.isNaN(minutes) || Number.isNaN(seconds))
+    return fail("--interval needs a number greater than 0")
+  if (Number.isNaN(polls)) return fail("--polls needs a number greater than 0")
+  const intervalMs = seconds !== null ? seconds * 1000 : (minutes ?? 5) * 60_000
+  const source = flags.mock
+    ? mockWatchSource()
+    : makeContext(flags, version).source
+  if (source.services.length === 0) return fail("no services configured")
+  if (flags.exec !== undefined && flags.exec.trim() === "")
+    return fail("--exec needs a command")
+
+  const controller = new AbortController()
+  const stop = () => controller.abort()
+  process.once("SIGINT", stop)
+  process.once("SIGTERM", stop)
+  try {
+    await watchLoop({
+      source,
+      intervalMs,
+      json: Boolean(flags.json),
+      exec: flags.exec,
+      polls: polls ?? Infinity,
+      signal: controller.signal,
+    })
+  } finally {
+    process.off("SIGINT", stop)
+    process.off("SIGTERM", stop)
+  }
   return 0
 }
 

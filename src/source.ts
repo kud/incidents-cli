@@ -7,7 +7,7 @@ import {
 import type { Config } from "./config.js"
 import type { Sort } from "./sort.js"
 import type { View } from "./view.js"
-import { MOCK_SERVICES, mockRecord } from "./mock.js"
+import { MOCK_SERVICES, mockRecord, mockWatchRecord } from "./mock.js"
 
 export interface Source {
   services: Service[]
@@ -75,3 +75,26 @@ export const mockSource = (delayMs = 120): Source => ({
     return mockRecord(service, true)
   },
 })
+
+// Fixtures for `watch --mock`: every readAll is the next poll of a scenario
+// in which services flip, so changes show up between polls.
+export const mockWatchSource = (): Source => {
+  let poll = 0
+  return {
+    services: MOCK_SERVICES,
+    note: null,
+    readAll: async ({ signal, onRecord }) => {
+      await settle(0, signal)
+      const current = poll++
+      return MOCK_SERVICES.map((service) => {
+        const record = mockWatchRecord(service, current)
+        onRecord?.(record)
+        return record
+      })
+    },
+    readDetail: async (service, { signal }) => {
+      await settle(0, signal)
+      return mockRecord(service, true)
+    },
+  }
+}

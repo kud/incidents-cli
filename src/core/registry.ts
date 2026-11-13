@@ -3,7 +3,7 @@ import type { Kind, Service } from "./types.js"
 
 export type RawServices = Record<string, Record<string, unknown> | null>
 
-export const RESERVED_WORDS = ["list", "services", "help"]
+export const RESERVED_WORDS = ["list", "services", "watch", "help"]
 const KINDS: Kind[] = ["statuspage", "rss", "slack", "aws", "link"]
 
 export class ConfigError extends Error {}
