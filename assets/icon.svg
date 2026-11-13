@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none" role="img" aria-labelledby="title">
+  <title id="title">Three service status rows, the major incident first</title>
+  <!-- A greater visual weight gives the top row priority even in monochrome. -->
+  <g fill="#D45E54">
+    <circle cx="26" cy="30" r="13"/>
+    <rect x="52" y="24" width="62" height="12" rx="6"/>
+  </g>
+  <g fill="#548995">
+    <circle cx="26" cy="65" r="7.5"/>
+    <rect x="52" y="61" width="52" height="8" rx="4"/>
+    <circle cx="26" cy="99" r="7.5"/>
+    <rect x="52" y="95" width="62" height="8" rx="4"/>
+  </g>
+</svg>

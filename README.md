@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/kud/incidents-cli/main/assets/icon.svg" alt="incidents-cli icon" width="64" height="64" />
+
 # incidents-cli
 
 Which of the services you depend on are declaring trouble right now: vendor status pages in one terminal view.
