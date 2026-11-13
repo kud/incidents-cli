@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
+import { stripVTControlCharacters } from "node:util"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
 import { mockSource } from "../src/source.js"
@@ -79,6 +80,60 @@ describe("board on a short window", () => {
       await tick(20)
     }
     assert.equal(reached.size, NAMES.length)
+    app.unmount()
+  })
+})
+
+// Where a text starts on its line, in cells: stripped of colour, the frame is
+// all single-cell glyphs, so the string index is the column.
+const columnOf = (frame: string, text: string | RegExp): number => {
+  const line = stripVTControlCharacters(frame)
+    .split("\n")
+    .find((l) => l.search(text) >= 0)
+  assert.ok(line, `${text} on screen\n${frame}`)
+  return line.search(text)
+}
+
+describe("board alignment", () => {
+  it("starts grid names, notes and the footer in the card-title column", async () => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = await until(() => stdout.frame, /updated/)
+    // Left column: a card below the selected one, then the grid under it.
+    const left = columnOf(frame, "Brightgate Auth")
+    assert.equal(columnOf(frame, "Demo Feed"), left, frame)
+    assert.equal(columnOf(frame, /\d+ more below/), left, frame)
+    assert.equal(columnOf(frame, "Declared status only"), left, frame)
+    // Right column: the same snap under the second card.
+    assert.equal(
+      columnOf(frame, "Driftwood Logs"),
+      columnOf(frame, "Copperleaf Pay"),
+      frame,
+    )
+    app.unmount()
+  })
+
+  it("keeps the counter on the keys' row", async () => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = await until(() => stdout.frame, /updated/)
+    const keys =
+      stripVTControlCharacters(frame)
+        .split("\n")
+        .find((l) => l.includes("q quit")) ?? ""
+    assert.match(keys, /1 of 21 │$/, frame)
     app.unmount()
   })
 })

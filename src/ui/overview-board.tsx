@@ -119,7 +119,9 @@ const GridLine = ({
   cell: number
   focused: boolean
 }) => (
-  <Box flexShrink={0}>
+  // A cell is a card column, less the one-cell gap between cards, so the
+  // selected band stops at the card edge above it, not one cell past.
+  <Box flexShrink={0} gap={1}>
     {line.map((r, j) => {
       const active = first + j === cursor
       const label = labelOf(r)
@@ -127,7 +129,7 @@ const GridLine = ({
       return (
         <Box
           key={r.service.id}
-          width={cell}
+          width={cell - 1}
           flexShrink={0}
           overflow="hidden"
           backgroundColor={active && focused ? BAND : undefined}

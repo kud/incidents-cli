@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Box, Text, useInput, useWindowSize } from "ink"
 import {
   FilterBar,
+  FooterHints,
   Page,
   Spinner,
   colors,
@@ -391,12 +392,8 @@ export const App = ({
           matches={term ? visible.length : undefined}
         />
       }
-      counter={
-        visible.length ? `${cursor + 1} of ${visible.length}` : undefined
-      }
       page="root"
       help={false}
-      hints={typing ? filterMode.hints : hints}
     >
       <Box flexDirection="row" flexGrow={1}>
         <Box flexDirection="column" width={filterW} flexShrink={0}>
@@ -430,6 +427,24 @@ export const App = ({
             empty={`Nothing in ${filterName} right now · tab to change filter`}
           />
         </Box>
+      </Box>
+      {/* The page's own counter takes a row above the keys; here it rides at
+          the end of the keys' row, so the body keeps that line. */}
+      <Box paddingLeft={2} paddingRight={1} flexShrink={0}>
+        <Box flexGrow={1}>
+          <FooterHints
+            hints={typing ? filterMode.hints : hints}
+            page="root"
+            help={false}
+          />
+        </Box>
+        {visible.length ? (
+          <Box flexShrink={0} marginLeft={2}>
+            <Text dimColor>
+              {cursor + 1} of {visible.length}
+            </Text>
+          </Box>
+        ) : null}
       </Box>
     </Page>
   )

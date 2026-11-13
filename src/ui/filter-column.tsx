@@ -6,14 +6,17 @@ import {
   barCells,
   type FilterId,
 } from "./overview-model.js"
-import { BAND, INK, MARK, SOFT, pad } from "./overview-parts.js"
+import { BAND, INK, SOFT, pad } from "./overview-parts.js"
 
 // The filters stacked beside the body. Each row carries a bar sized to its
 // count, so the column is the tally as well as the filter: one place answers
 // both "how bad is it" and "show me only that".
+// The column's own gutter: a space, the marker, a space, so the marker sits
+// under the first letter of the pane title.
+const GUTTER = 3
 const GLYPH_W = 2
 const COUNT_W = 3
-const NAME_W = FILTER_FULL - MARK - GLYPH_W - COUNT_W - 1 - BAR_MAX
+const NAME_W = FILTER_FULL - GUTTER - GLYPH_W - COUNT_W - 1 - BAR_MAX
 
 export type FilterItem = {
   id: FilterId

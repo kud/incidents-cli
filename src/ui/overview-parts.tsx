@@ -34,8 +34,11 @@ export const SOFT = colors.secondary
 export const BAND = colors.selection
 export const FRAME_SIDES = 4
 export const GAP = 2
-// The selection gutter: a space, the marker, a space.
-export const MARK = 3
+// The selection gutter: the marker, then a space. It is as wide as a card's
+// border and padding, so a name in the grid or the list starts in the column
+// where card titles start, and every note in the body (the scroll hint, the
+// hidden count, an empty filter, the footer) starts there too.
+export const MARK = 2
 
 export const pad = (text: string, width: number): string => {
   if (width <= 0) return ""
@@ -69,7 +72,7 @@ export const Marker = ({
   focused?: boolean
 }) => (
   <Text color={focused ? colors.info : colors.muted}>
-    {active ? " ❯ " : "   "}
+    {active ? "❯ " : "  "}
   </Text>
 )
 
@@ -165,7 +168,7 @@ export const Empty = ({ text }: { text: string }) => (
 )
 
 export const Footer = ({ note }: { note: string | null }) => (
-  <Box flexDirection="column" marginTop={1} flexShrink={0}>
+  <Box flexDirection="column" marginTop={1} flexShrink={0} paddingLeft={MARK}>
     <Text color={colors.muted}>
       Declared status only: green is not proof your calls work.
     </Text>

@@ -99,3 +99,21 @@ describe("list overview", () => {
     app.unmount()
   })
 })
+
+describe("list alignment", () => {
+  it("starts names in the footer's column, the marker in the gutter", async () => {
+    const { app, frame } = open(mockSource(2))
+    const done = await until(frame, /updated/)
+    const at = (text: string) => {
+      const line = done.split("\n").find((l) => l.includes(text)) ?? ""
+      return line.indexOf(text)
+    }
+    const name = at("Brightgate Auth")
+    assert.ok(name > 0, done)
+    assert.equal(at("Declared status only"), name, done)
+    assert.equal(at("❯ Acme Cloud"), name - 2, done)
+    // The pane title's bar marks the pane's first column.
+    assert.equal(at("▍Services"), name - 2, done)
+    app.unmount()
+  })
+})
