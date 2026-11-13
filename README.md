@@ -4,6 +4,10 @@ Which of the services you depend on are declaring trouble right now: vendor stat
 
 It reads each vendor's own status page, worst first, and tells you what they have **declared**. A green row is not proof your calls work; a page it cannot read is shown as `? unreadable` and counts as not green, never as fine.
 
+![The overview: every service, worst first](assets/overview.png)
+
+![One service in detail: open incidents, affected components, earlier ones](assets/detail.png)
+
 ## Install
 
 ```sh
@@ -134,6 +138,8 @@ npm test
 ```
 
 `--mock` swaps every data source for fixtures; `--screen <name>` opens straight on a screen (`--screen list` prints the names).
+
+`scripts/screenshots.zsh` regenerates the images above from the same fixtures (needs [vhs](https://github.com/charmbracelet/vhs)).
 
 ## Licence
 
