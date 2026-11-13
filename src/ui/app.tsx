@@ -4,7 +4,6 @@ import {
   FilterBar,
   FooterHints,
   Page,
-  Spinner,
   colors,
   useAppKeys,
   useFilterMode,
@@ -44,9 +43,6 @@ type Focus = "filters" | "body"
 const BEFORE_RULE = 1
 const AFTER_RULE = 2
 
-// SelectableRow's gutter, kept for the detail body's indent.
-const GUTTER = 4
-
 const FILTER_TONE: Partial<Record<FilterId, string>> = {
   trouble: colors.error,
 }
@@ -63,23 +59,6 @@ const keepHistory = (
         historyFailed: previous.historyFailed,
       }
     : next
-
-const Detail = ({
-  record,
-  width,
-}: {
-  record: ServiceRecord | undefined
-  width: number
-}) =>
-  record ? (
-    <Box flexDirection="column" flexGrow={1} paddingLeft={GUTTER}>
-      <DetailBody record={record} width={width} />
-    </Box>
-  ) : (
-    <Box paddingLeft={GUTTER}>
-      <Spinner label="Reading the status page…" />
-    </Box>
-  )
 
 const filterItems = (counts: Record<FilterId, number>): FilterItem[] =>
   FILTERS.map((f) => {
@@ -117,6 +96,9 @@ export const App = ({
   const [folded, setFolded] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
   const [detailBusy, setDetailBusy] = useState(false)
+  // When the open service was last read on its own, so its page says how old
+  // its own data is rather than the overview's.
+  const [detailAt, setDetailAt] = useState<Date | null>(null)
   const loadRef = useRef<AbortController | null>(null)
   const detailRef = useRef<AbortController | null>(null)
 
@@ -156,6 +138,7 @@ export const App = ({
         .then((record) => {
           setRecords((prev) => ({ ...prev, [id]: record }))
           setDetailBusy(false)
+          setDetailAt(new Date())
         })
         .catch(() => undefined)
     },
@@ -256,6 +239,7 @@ export const App = ({
   const closeDetail = () => {
     detailRef.current?.abort()
     setDetailBusy(false)
+    setDetailAt(null)
     setDetailId(null)
   }
 
@@ -298,10 +282,11 @@ export const App = ({
   })
 
   const trouble = Object.values(records).filter((r) => !isClear(r.indicator))
-  const updated = {
-    text: `updated ${updatedAt?.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) ?? ""}`,
+  const stamp = (at: Date | null) => ({
+    text: `updated ${at?.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) ?? ""}`,
     tone: "quiet" as const,
-  }
+  })
+  const updated = stamp(updatedAt)
   const status = loading
     ? {
         text: updatedAt ? "↻ refreshing…" : "↻ checking…",
@@ -325,20 +310,26 @@ export const App = ({
         title="Incidents"
         scope={service?.name}
         status={
-          detailBusy && record && !record.historyLoaded
-            ? { text: "↻ loading history…", tone: "busy" }
-            : status
+          !record
+            ? { text: "↻ checking…", tone: "busy" }
+            : detailBusy
+              ? record.historyLoaded
+                ? { text: "↻ refreshing…", tone: "quiet" }
+                : { text: "↻ loading history…", tone: "busy" }
+              : stamp(detailAt ?? updatedAt)
         }
         page="nested"
         help={false}
+        gap={false}
         hints={[
           ["↑↓", "scroll"],
           ["r", "refresh"],
         ]}
       >
-        <Detail
+        <DetailBody
           record={record}
-          width={Math.max(20, columns - FRAME_SIDES - GUTTER)}
+          width={Math.max(20, columns - FRAME_SIDES)}
+          historyBusy={detailBusy && !record?.historyLoaded}
         />
       </Page>
     )

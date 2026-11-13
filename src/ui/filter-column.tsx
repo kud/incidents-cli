@@ -30,10 +30,12 @@ export type FilterItem = {
 // focus, grey without the bar when it does not.
 export const PaneTitle = ({
   label,
+  count,
   focused,
   width,
 }: {
   label: string
+  count?: number
   focused: boolean
   width?: number
 }) => (
@@ -45,6 +47,9 @@ export const PaneTitle = ({
     >
       {focused ? "▍" : " "}
       {label}
+      {count ? (
+        <Text color={colors.muted} bold={false}>{`  ${count}`}</Text>
+      ) : null}
     </Text>
   </Box>
 )

@@ -51,12 +51,23 @@ const busy: ServiceRecord = {
 }
 
 describe("detail view", () => {
-  it("stacks open incidents, affected components, then earlier", () => {
+  it("stacks open incidents, affected components, then history", () => {
     const lines = sectionsLines(busy, 120).map(text)
     const at = (heading: RegExp) => lines.findIndex((l) => heading.test(l))
-    assert.ok(at(/^Open incidents\s+2$/) > 0)
-    assert.ok(at(/^Affected components\s+3$/) > at(/^Open incidents/))
-    assert.ok(at(/^Earlier\s+24$/) > at(/^Affected components/))
+    assert.ok(at(/^ Open incidents\s+2$/) > 0)
+    assert.ok(at(/^ Affected components\s+3$/) > at(/^ Open incidents/))
+    assert.ok(at(/^ History\s+24$/) > at(/^ Affected components/))
+  })
+
+  it("starts every heading on the header's edge, rows two further in", () => {
+    const lines = sectionsLines(busy, 120).map(text).filter(Boolean)
+    const starts = new Set(lines.map((l) => l.length - l.trimStart().length))
+    assert.deepEqual([...starts].sort(), [1, 3, 5])
+  })
+
+  it("gives the status page its own line, never cut", () => {
+    const lines = sectionsLines(busy, 120).map(text)
+    assert.equal(lines[1].trim(), "status.acme-cloud.example.com")
   })
 
   it("right-aligns every time to one edge, open and past alike", () => {
@@ -71,21 +82,16 @@ describe("detail view", () => {
   })
 
   it("names each period once rather than on every row", () => {
-    const lines = sectionsLines(busy, 120).map(text)
-    const earlier = lines.slice(lines.findIndex((l) => /^Earlier/.test(l)) + 1)
-    const labels = earlier
-      .map((l) => l.slice(2).split(/\s{2,}/)[0])
-      .filter((label) => label && !label.startsWith("Past incident"))
+    const lines = historyLines(busy, 80).map(text)
+    const labels = lines.filter((l) => /^ \S/.test(l))
     assert.ok(labels.length >= 2)
     assert.equal(new Set(labels).size, labels.length)
   })
 
   it("groups the history pane under period headings", () => {
     const lines = historyLines(busy, 80).map(text)
-    assert.match(lines[0], /^History\s+24$/)
     const rows = lines.filter((l) => /Past incident/.test(l))
     assert.equal(rows.length, 24)
-    assert.ok(lines.filter((l) => /^\S/.test(l)).length >= 3)
-    assert.ok(rows.every((l) => l.length <= 80))
+    assert.ok(rows.every((l) => l.startsWith("   P") && l.length <= 80))
   })
 })
