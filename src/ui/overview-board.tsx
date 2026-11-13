@@ -131,18 +131,11 @@ const Tile = ({
 }
 
 // Everything without a card, pending services included, as a grid of names
-// that reads at a glance.
-const ClearGrid = ({
-  rows,
-  offset,
-  cursor,
-  width,
-}: {
-  rows: Row[]
-  offset: number
-  cursor: number
-  width: number
-}) => {
+// that reads at a glance. Each line holds as many cells as the widest fits.
+const gridLines = (
+  rows: Row[],
+  width: number,
+): { cell: number; lines: Row[][] } => {
   const cell =
     MARK +
     widest(
@@ -156,62 +149,122 @@ const ClearGrid = ({
   const lines: Row[][] = []
   for (let i = 0; i < rows.length; i += perLine)
     lines.push(rows.slice(i, i + perLine))
-  return (
-    <Box flexDirection="column">
-      {lines.map((line, n) => (
-        <Box key={n}>
-          {line.map((r, j) => {
-            const active = offset + n * perLine + j === cursor
-            const label = labelOf(r)
-            const extra = headline(r.record)
-            return (
-              <Box
-                key={r.service.id}
-                width={cell}
-                flexShrink={0}
-                backgroundColor={active ? BAND : undefined}
-              >
-                <Marker active={active} />
-                <Text color={INK} bold>
-                  {r.service.name}
-                </Text>
-                <Text>{"  "}</Text>
-                {r.record ? (
-                  <Text color={TONE[label.tone]}>{label.text}</Text>
-                ) : (
-                  <Spinner label="checking" />
-                )}
-                {extra ? <Text color={colors.muted}> {extra}</Text> : null}
-              </Box>
-            )
-          })}
-        </Box>
-      ))}
-    </Box>
-  )
+  return { cell, lines }
 }
 
-// The cards the window left out, so a scrolled board never hides one silently.
+const GridLine = ({
+  line,
+  first,
+  cursor,
+  cell,
+}: {
+  line: Row[]
+  first: number
+  cursor: number
+  cell: number
+}) => (
+  <Box flexShrink={0}>
+    {line.map((r, j) => {
+      const active = first + j === cursor
+      const label = labelOf(r)
+      const extra = headline(r.record)
+      return (
+        <Box
+          key={r.service.id}
+          width={cell}
+          flexShrink={0}
+          backgroundColor={active ? BAND : undefined}
+        >
+          <Marker active={active} />
+          <Text color={INK} bold>
+            {r.service.name}
+          </Text>
+          <Text>{"  "}</Text>
+          {r.record ? (
+            <Text color={TONE[label.tone]}>{label.text}</Text>
+          ) : (
+            <Spinner label="checking" />
+          )}
+          {extra ? <Text color={colors.muted}> {extra}</Text> : null}
+        </Box>
+      )
+    })}
+  </Box>
+)
+
+// One band per card line or grid line. `first` is the cursor index of the
+// band's first service, `size` how many services it holds.
+type Band = { height: number; first: number; size: number }
+type Span = { start: number; end: number }
+
+const holds = (b: Band, cursor: number) =>
+  cursor >= b.first && cursor < b.first + b.size
+
+// The bands that fit in `room` lines. Without the cursor among them, the top
+// ones. With it, they grow one band above, then one below, in turn, so the
+// cursor sits mid-window until an edge stops one side; its own band always
+// shows, even when the room is short.
+const windowOf = (bands: Band[], cursor: number, room: number): Span => {
+  const at = bands.findIndex((b) => holds(b, cursor))
+  if (at < 0) {
+    let end = 0
+    let used = 0
+    while (end < bands.length && used + bands[end].height <= room)
+      used += bands[end++].height
+    return { start: 0, end }
+  }
+  let start = at
+  let end = at + 1
+  let used = bands[at].height
+  let up = true
+  let down = true
+  while (up || down) {
+    if (up) {
+      const h = bands[start - 1]?.height
+      if (h !== undefined && used + h <= room) {
+        start -= 1
+        used += h
+      } else up = false
+    }
+    if (down) {
+      const h = bands[end]?.height
+      if (h !== undefined && used + h <= room) {
+        end += 1
+        used += h
+      } else down = false
+    }
+  }
+  return { start, end }
+}
+
+const servicesIn = (bands: Band[]) => bands.reduce((sum, b) => sum + b.size, 0)
+
+// The services the windows left out, so a scrolled board never hides one
+// silently. Walking order runs cards then grid, so a card cut below the window
+// is "below" even though the grid follows it on screen.
 const offscreen = (
-  lines: number[][],
-  start: number,
-  fit: number,
-  total: number,
+  cards: Band[],
+  cardSpan: Span,
+  grid: Band[],
+  gridSpan: Span,
 ): string => {
-  const shown = lines.slice(start, start + fit).flat().length
-  const above = lines.slice(0, start).flat().length
-  const below = total - shown - above
+  const above =
+    servicesIn(cards.slice(0, cardSpan.start)) +
+    servicesIn(grid.slice(0, gridSpan.start))
+  const below =
+    servicesIn(cards.slice(cardSpan.end)) + servicesIn(grid.slice(gridSpan.end))
   return [
     above ? `${above} more above` : "",
     below ? `${below} more below` : "",
   ]
     .filter(Boolean)
     .join(" · ")
-    .concat(" · ↑↓ scroll")
 }
 
 // `rows` arrive in the board's walking order (cards, then the grid), so the
-// cursor index reads straight across both.
+// cursor index reads straight across both. The grid takes the lines it needs
+// first, short of crowding out every card; the cards scroll in what is left.
+// Whatever either part cannot show is counted on the line between them.
 export const BoardOverview = ({
   rows,
   cursor,
@@ -225,25 +278,35 @@ export const BoardOverview = ({
   const rest = rows.filter((r) => !isCard(r))
   const perLine = Math.max(1, Math.min(5, Math.floor((inner + 1) / (TILE + 1))))
   const tile = Math.floor((inner + 1) / perLine) - 1
-  const lines: number[][] = []
+  const grid = gridLines(rest, inner)
+  const cardBands: Band[] = []
   for (let i = 0; i < cards.length; i += perLine)
-    lines.push(cards.slice(i, i + perLine).map((_, j) => i + j))
-  const restLines = Math.ceil(rest.length / Math.max(1, Math.floor(inner / 30)))
-  const fit = Math.max(
-    1,
-    Math.floor(
-      Math.max(0, height - restLines - (hidden.length ? 2 : 0) - 1) /
-        TILE_LINES,
+    cardBands.push({
+      height: TILE_LINES,
+      first: i,
+      size: Math.min(perLine, cards.length - i),
+    })
+  const gridBands: Band[] = grid.lines.map((line, n) => ({
+    height: 1,
+    first: cards.length + n * grid.lines[0].length,
+    size: line.length,
+  }))
+  // One line is always kept for the scroll note or the break before the grid.
+  const budget = Math.max(0, height - (hidden.length ? 2 : 0) - 1)
+  const onGrid = cursor >= cards.length
+  const gridRoom = Math.min(
+    gridBands.length,
+    Math.max(
+      onGrid ? 1 : 0,
+      budget - (cardBands.length && !onGrid ? TILE_LINES : 0),
     ),
   )
-  const at = Math.max(
-    0,
-    lines.findIndex((l) => l.includes(cursor)),
-  )
-  const start =
-    cursor >= cards.length || lines.length <= fit
-      ? 0
-      : Math.max(0, Math.min(at - Math.floor(fit / 2), lines.length - fit))
+  const cardSpan = windowOf(cardBands, cursor, budget - gridRoom)
+  const gridSpan = windowOf(gridBands, cursor, gridRoom)
+  const shownCards = cardBands.slice(cardSpan.start, cardSpan.end)
+  const shownGrid = gridBands.slice(gridSpan.start, gridSpan.end)
+  const scrolled =
+    shownCards.length < cardBands.length || shownGrid.length < gridBands.length
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Tally rows={rows} width={perLine * (tile + 1) - 2} />
@@ -255,35 +318,42 @@ export const BoardOverview = ({
         marginTop={1}
       >
         {rows.length ? null : <Empty />}
-        {lines.slice(start, start + fit).map((line, n) => (
-          <Box key={n} gap={1} flexShrink={0}>
-            {line.map((i) => (
+        {shownCards.map((band) => (
+          <Box key={band.first} gap={1} flexShrink={0}>
+            {cards.slice(band.first, band.first + band.size).map((card, j) => (
               <Tile
-                key={cards[i].service.id}
-                row={cards[i]}
-                active={i === cursor}
+                key={card.service.id}
+                row={card}
+                active={band.first + j === cursor}
                 width={tile}
               />
             ))}
           </Box>
         ))}
-        {lines.length > fit ? (
-          <Box paddingLeft={MARK}>
+        {scrolled ? (
+          <Box paddingLeft={MARK} flexShrink={0}>
             <Text color={colors.muted}>
-              {offscreen(lines, start, fit, cards.length)}
+              {offscreen(cardBands, cardSpan, gridBands, gridSpan)}
+              {" · ↑↓ scroll"}
             </Text>
           </Box>
-        ) : cards.length && rest.length ? (
+        ) : shownCards.length && shownGrid.length ? (
           <Text> </Text>
         ) : null}
-        <ClearGrid
-          rows={rest}
-          offset={cards.length}
-          cursor={cursor}
-          width={inner}
-        />
+        {shownGrid.map((band) => (
+          <GridLine
+            key={band.first}
+            line={rest.slice(
+              band.first - cards.length,
+              band.first - cards.length + band.size,
+            )}
+            first={band.first}
+            cursor={cursor}
+            cell={grid.cell}
+          />
+        ))}
         {hidden.length ? (
-          <Box marginTop={rows.length ? 1 : 0}>
+          <Box marginTop={rows.length ? 1 : 0} flexShrink={0}>
             <HiddenNote parts={hidden} />
           </Box>
         ) : null}
