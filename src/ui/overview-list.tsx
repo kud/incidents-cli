@@ -22,7 +22,6 @@ import {
   MARK,
   Marker,
   Pending,
-  SOFT,
   StatusCell,
   TONE,
   pad,
@@ -83,13 +82,13 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
     )
     if (age)
       lines.push(
-        <Text key="a" color={SOFT}>
+        <Text key="a" color={INK}>
           started {clock} · going {age}
         </Text>,
       )
     if (r.active.length > 1)
       lines.push(
-        <Text key="m" color={SOFT}>
+        <Text key="m" color={INK}>
           and {r.active.length - 1} more open incident
           {r.active.length > 2 ? "s" : ""}
         </Text>,
@@ -204,15 +203,15 @@ export const ListOverview = ({
           <StatusCell row={row} width={statusW + GAP} />
           {r ? (
             <>
-              <Text color={SOFT}>{pad(headline(r), titleW)}</Text>
+              <Text color={INK}>{pad(headline(r), titleW)}</Text>
               {compsW ? (
-                <Text color={SOFT}>
+                <Text color={INK}>
                   {"  "}
                   {pad(affected(r).join(", "), compsW)}
                 </Text>
               ) : null}
               {ageW ? (
-                <Text color={SOFT}>
+                <Text color={INK}>
                   {"  "}
                   {ageText(r).padStart(ageW)}
                 </Text>

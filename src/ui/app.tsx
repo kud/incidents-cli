@@ -3,6 +3,7 @@ import { Box, Text, useInput, useWindowSize } from "ink"
 import {
   FilterBar,
   FooterHints,
+  PAGE_CHROME,
   Page,
   colors,
   useAppKeys,
@@ -14,7 +15,12 @@ import { isClear, worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
 import { DetailBody } from "./detail.js"
-import { BoardOverview } from "./overview-board.js"
+import {
+  BoardOverview,
+  boardShape,
+  boardStep,
+  type Direction,
+} from "./overview-board.js"
 import { ListOverview } from "./overview-list.js"
 import {
   FILTERS,
@@ -80,7 +86,7 @@ export const App = ({
   source: Source
   initialDetail?: string
 }) => {
-  const { columns } = useWindowSize()
+  const { columns, rows: height } = useWindowSize()
   const [records, setRecords] = useState<Record<string, ServiceRecord>>({})
   const [loading, setLoading] = useState(true)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
@@ -194,7 +200,8 @@ export const App = ({
 
   const { cursor, setCursor } = useListCursor(visible.length, {
     vimKeys: !typing,
-    isActive: atRoot && focus === "body",
+    // The board walks in two dimensions, so it takes the arrows itself.
+    isActive: atRoot && focus === "body" && view === "list",
   })
 
   // The cursor holds a service, not a position: across the re-sort, a tab,
@@ -258,21 +265,46 @@ export const App = ({
     },
   })
 
+  const filterW = filterWidth(columns)
+  const full = filterW > 8
+  const bodyW = Math.max(
+    20,
+    columns - FRAME_SIDES - filterW - BEFORE_RULE - 1 - AFTER_RULE,
+  )
+
   useInput((input, key) => {
     if (typing) return
     if (input === "r") return detailId ? loadDetail(detailId) : load()
     if (!atRoot) return
     if (key.tab) return setFocus((f) => (f === "filters" ? "body" : "filters"))
+    const cycle = (step: number) => {
+      const i = FILTERS.findIndex((f) => f.id === tab)
+      setActive(FILTERS[(i + step + FILTERS.length) % FILTERS.length].id)
+    }
     if (focus === "filters") {
+      if (key.rightArrow) return setFocus("body")
       const back = key.upArrow || input === "k"
       const on = key.downArrow || input === "j"
-      if (back || on) {
-        const i = FILTERS.findIndex((f) => f.id === tab)
-        const n = (i + (on ? 1 : -1) + FILTERS.length) % FILTERS.length
-        return setActive(FILTERS[n].id)
-      }
+      if (back || on) return cycle(on ? 1 : -1)
       if (key.return) return setFocus("body")
       return
+    }
+    if (view === "board") {
+      const dir: Direction | null = key.leftArrow
+        ? "left"
+        : key.rightArrow
+          ? "right"
+          : key.upArrow || input === "k"
+            ? "up"
+            : key.downArrow || input === "j"
+              ? "down"
+              : null
+      if (dir && visible.length) {
+        const next = boardStep(boardShape(visible, bodyW, sorted), cursor, dir)
+        return next === "filters" ? setFocus("filters") : setCursor(next)
+      }
+    } else if (key.leftArrow || key.rightArrow) {
+      return cycle(key.rightArrow ? 1 : -1)
     }
     if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
     if (input === "s")
@@ -320,7 +352,6 @@ export const App = ({
         }
         page="nested"
         help={false}
-        gap={false}
         hints={[
           ["↑↓", "scroll"],
           ["r", "refresh"],
@@ -329,6 +360,8 @@ export const App = ({
         <DetailBody
           record={record}
           width={Math.max(20, columns - FRAME_SIDES)}
+          // The frame, the title row, the blank under it and the keys.
+          height={Math.max(4, height - PAGE_CHROME - 1)}
           historyBusy={detailBusy && !record?.historyLoaded}
         />
       </Page>
@@ -337,10 +370,6 @@ export const App = ({
 
   const Overview = view === "board" ? BoardOverview : ListOverview
   const onFilters = focus === "filters"
-  const inner = columns - FRAME_SIDES
-  const filterW = filterWidth(columns)
-  const full = filterW > 8
-  const bodyW = Math.max(20, inner - filterW - BEFORE_RULE - 1 - AFTER_RULE)
   const filterName = FILTERS.find((f) => f.id === tab)?.name ?? tab
   // Collapsed, the column has no room for names, so the active one rides in
   // the body's title.
@@ -355,7 +384,12 @@ export const App = ({
         ["r", "refresh"],
       ]
     : [
-        ["↑↓", "move"],
+        ...(view === "board"
+          ? ([["←→↑↓", "move"]] as [string, string][])
+          : ([
+              ["↑↓", "move"],
+              ["←→", "filter"],
+            ] as [string, string][])),
         ["⏎", "open"],
         ["tab", "filters"],
         ["/", "search"],
@@ -375,13 +409,16 @@ export const App = ({
       status={status}
       alert={alert}
       critical={critical}
+      // No search open, no bar: the frame keeps its blank under the title.
       filter={
-        <FilterBar
-          term={term}
-          typing={typing}
-          caret={filterMode.caret}
-          matches={term ? visible.length : undefined}
-        />
+        term === null ? undefined : (
+          <FilterBar
+            term={term}
+            typing={typing}
+            caret={filterMode.caret}
+            matches={term ? visible.length : undefined}
+          />
+        )
       }
       page="root"
       help={false}

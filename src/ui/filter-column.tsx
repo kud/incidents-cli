@@ -1,12 +1,12 @@
 import { Box, Text } from "ink"
-import { colors } from "@kud/ink-ui"
+import { colors, palette } from "@kud/ink-ui"
 import {
   BAR_MAX,
   FILTER_FULL,
   barCells,
   type FilterId,
 } from "./overview-model.js"
-import { BAND, INK, SOFT, pad } from "./overview-parts.js"
+import { BAND, INK, pad } from "./overview-parts.js"
 
 // The filters stacked beside the body. Each row carries a bar sized to its
 // count, so the column is the tally as well as the filter: one place answers
@@ -26,8 +26,9 @@ export type FilterItem = {
   color: string
 }
 
-// A pane's title: a bar and the label in the accent while the pane holds
-// focus, grey without the bar when it does not.
+// A pane's title: a filled pill in the accent while the pane holds focus,
+// plain text when it does not. The label sits one cell in either way, so it
+// never moves when focus changes.
 export const PaneTitle = ({
   label,
   count,
@@ -38,21 +39,25 @@ export const PaneTitle = ({
   count?: number
   focused: boolean
   width?: number
-}) => (
-  <Box width={width} flexShrink={0}>
-    <Text
-      color={focused ? colors.info : colors.muted}
-      bold={focused}
-      wrap="truncate-end"
-    >
-      {focused ? "▍" : " "}
-      {label}
-      {count ? (
-        <Text color={colors.muted} bold={false}>{`  ${count}`}</Text>
-      ) : null}
-    </Text>
-  </Box>
-)
+}) => {
+  // A slim column drops the pill's closing space rather than the label's end.
+  const text =
+    width !== undefined && label.length + 2 > width ? ` ${label}` : ` ${label} `
+  return (
+    <Box width={width} flexShrink={0}>
+      <Text wrap="truncate-end">
+        {focused ? (
+          <Text backgroundColor={colors.accent} color={palette.ground} bold>
+            {text}
+          </Text>
+        ) : (
+          <Text color={INK}>{text}</Text>
+        )}
+        {count ? <Text color={INK}>{` ${count}`}</Text> : null}
+      </Text>
+    </Box>
+  )
+}
 
 // The one-cell rule between the filter column and the body.
 export const Rule = () => (
@@ -93,7 +98,7 @@ export const FilterList = ({
       // rest hold a quiet dot in the count's own cell, so nothing shifts.
       const known = settled || item.id === "all"
       const empty = known && item.count === 0
-      const tone = on ? INK : empty ? colors.muted : SOFT
+      const tone = INK
       const bar = known ? barCells(item.count, total, item.id) : 0
       return (
         <Box key={item.id} flexDirection="column" flexShrink={0}>

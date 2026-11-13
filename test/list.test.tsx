@@ -112,8 +112,9 @@ describe("list alignment", () => {
     assert.ok(name > 0, done)
     assert.equal(at("Declared status only"), name, done)
     assert.equal(at("❯ Acme Cloud"), name - 2, done)
-    // The pane title's bar marks the pane's first column.
-    assert.equal(at("▍Services"), name - 2, done)
+    // The pane title's pill starts in the pane's first column, its label
+    // one cell in.
+    assert.equal(at("Services"), name - 1, done)
     app.unmount()
   })
 })

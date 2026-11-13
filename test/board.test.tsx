@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import { stripVTControlCharacters } from "node:util"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
+import { boardStep } from "../src/ui/overview-board.js"
 import { mockSource } from "../src/source.js"
 import { terminal, bodyOf } from "./helpers.js"
 
@@ -15,6 +16,22 @@ const until = async (frame: () => string, pattern: RegExp) => {
 }
 
 const NAMES = mockSource().services.map((s) => s.name)
+const RIGHT = "\u001b[C"
+const LEFT = "\u001b[D"
+const DOWN = "\u001b[B"
+const UP = "\u001b[A"
+
+// The selected service: a grid line's marker, or the card drawn in the bold
+// border, whose name sits one row under its top-left corner.
+const selectedOf = (frame: string): string | undefined => {
+  const lines = stripVTControlCharacters(frame).split("\n")
+  const marked = lines.find((l) => bodyOf(l).includes("❯"))
+  if (marked) return NAMES.find((n) => marked.includes(`❯ ${n}`))
+  const top = lines.findIndex((l) => l.includes("┏"))
+  if (top < 0) return undefined
+  const under = lines[top + 1].slice(lines[top].indexOf("┏") + 2)
+  return NAMES.find((n) => under.startsWith(n))
+}
 
 // Every service is on screen or counted in the scroll note, and none is drawn
 // over another: each name shows at most once, and a cell's trailing text only
@@ -67,17 +84,30 @@ describe("board on a short window", () => {
     const frame = () => stdout.frame
     await until(frame, /updated/)
     const reached = new Set<string>()
-    for (let i = 0; i < NAMES.length; i++) {
-      const selected =
-        frame()
-          .split("\n")
-          .find((l) => bodyOf(l).includes("❯")) ?? ""
-      const name = NAMES.find((n) => selected.includes(`❯ ${n}`))
-      assert.ok(name, `step ${i}: no selected service on screen\n${frame()}`)
+    const at = () => {
+      const name = selectedOf(frame())
+      assert.ok(name, `no selected service on screen\n${frame()}`)
       reached.add(name)
       accountsForAll(frame())
-      stdin.press("j")
+      return name
+    }
+    const press = async (key: string) => {
+      stdin.press(key)
       await tick(20)
+    }
+    // Row by row: right to the end of the row, back to its first column,
+    // then down; the walk ends when down no longer moves.
+    for (let row = 0; row < NAMES.length; row++) {
+      let steps = 0
+      for (let before = at(); ; steps++) {
+        await press(RIGHT)
+        if (at() === before) break
+        before = at()
+      }
+      for (let i = 0; i < steps; i++) await press(LEFT)
+      const before = at()
+      await press(DOWN)
+      if (at() === before) break
     }
     assert.equal(reached.size, NAMES.length)
     app.unmount()
@@ -135,5 +165,90 @@ describe("board alignment", () => {
         .find((l) => l.includes("q quit")) ?? ""
     assert.match(keys, /1 of 21 │$/, frame)
     app.unmount()
+  })
+})
+
+describe("board arrows", () => {
+  // Five cards two to a line, then four grid names two to a line.
+  const shape = { cards: 5, perLine: 2, across: 2, span: 1, total: 9 }
+
+  it("moves along a row with ←→ and down a column with ↑↓", () => {
+    assert.equal(boardStep(shape, 0, "right"), 1)
+    assert.equal(boardStep(shape, 1, "right"), 1)
+    assert.equal(boardStep(shape, 1, "left"), 0)
+    assert.equal(boardStep(shape, 0, "down"), 2)
+    assert.equal(boardStep(shape, 2, "up"), 0)
+    assert.equal(boardStep(shape, 0, "up"), 0)
+    // A short last row of cards: down from above it lands on its last card.
+    assert.equal(boardStep(shape, 3, "down"), 4)
+  })
+
+  it("crosses between the cards and the grid by column", () => {
+    assert.equal(boardStep(shape, 4, "down"), 5)
+    assert.equal(boardStep(shape, 5, "up"), 4)
+    assert.equal(boardStep(shape, 6, "up"), 4)
+    assert.equal(boardStep(shape, 5, "down"), 7)
+    assert.equal(boardStep(shape, 8, "right"), 8)
+    assert.equal(boardStep(shape, 8, "down"), 8)
+  })
+
+  it("leaves for the filters off the first column, card or grid", () => {
+    assert.equal(boardStep(shape, 0, "left"), "filters")
+    assert.equal(boardStep(shape, 2, "left"), "filters")
+    assert.equal(boardStep(shape, 7, "left"), "filters")
+    assert.equal(boardStep(shape, 6, "left"), 5)
+  })
+
+  it("takes ← from the first card to Filters and → back", async () => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    await until(frame, /updated/)
+    const first = selectedOf(frame())
+    stdin.press(RIGHT)
+    await tick(20)
+    const second = selectedOf(frame())
+    assert.notEqual(second, first)
+    stdin.press(LEFT)
+    await tick(20)
+    assert.equal(selectedOf(frame()), first)
+    assert.match(frame(), /tab filters/)
+    stdin.press(LEFT)
+    await tick(20)
+    assert.match(frame(), /tab services/)
+    stdin.press(RIGHT)
+    await tick(20)
+    assert.match(frame(), /tab filters/)
+    stdin.press(DOWN)
+    await tick(20)
+    stdin.press(UP)
+    await tick(20)
+    assert.equal(selectedOf(frame()), first)
+    app.unmount()
+  })
+
+  it("marks the selected card by its border, with no marker", async () => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    const done = await until(frame, /updated/)
+    app.unmount()
+    const lines = done.split("\n")
+    assert.equal(lines.filter((l) => l.includes("┏")).length, 1, done)
+    const top = lines.findIndex((l) => l.includes("┏"))
+    for (const l of lines.slice(top, top + 6))
+      assert.doesNotMatch(bodyOf(l), /❯/)
   })
 })

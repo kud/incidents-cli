@@ -47,7 +47,7 @@ describe("detail page layout", () => {
       app.unmount()
       const titles = lines.find((l) => l.includes("History"))!
       // The frame, the header's edge, then the left title on it.
-      assert.match(titles, /^│ Now {2,}│ {2}▍History {2}2/)
+      assert.match(titles, /^│ Now {2,}│ {3}History {2}2/)
       // Column, one space, the rule, two spaces, the body.
       const rule = titles.indexOf("│", 1)
       assert.equal(titles[rule - 1], " ")
@@ -74,9 +74,9 @@ describe("detail page layout", () => {
     const lines = frame().split("\n")
     app.unmount()
     const titles = lines.find((l) => l.includes("History"))!
-    assert.match(titles, /▍History\s*$/)
+    assert.match(titles, / History\s*$/)
     const under = lines[lines.indexOf(titles) + 2]
-    assert.match(under.slice(titles.indexOf("▍")), /▀/)
+    assert.match(under.slice(titles.indexOf("History") - 1), /▀/)
   })
 
   it("says so when a loaded history is empty", () => {
@@ -106,7 +106,49 @@ describe("detail page layout", () => {
     )
     const out = await until(frame, /updated/)
     app.unmount()
-    assert.doesNotMatch(out, /▍History/)
+    assert.doesNotMatch(out, /│ {3}History/)
     assert.match(out, /Open incidents/)
   })
+})
+
+describe("detail page height", () => {
+  const DOWN = "\u001b[B"
+  for (const columns of [160, 120]) {
+    it(`never runs past the terminal at ${columns} columns, and scrolls`, async () => {
+      const rows = 30
+      const { stdout, stdin } = terminal(columns, rows)
+      const app = render(
+        <App
+          source={{ ...mockSource(1), view: "board" }}
+          initialDetail="harbour-ci"
+        />,
+        {
+          stdout: stdout as unknown as NodeJS.WriteStream,
+          stdin: stdin as unknown as NodeJS.ReadStream,
+          debug: true,
+          patchConsole: false,
+          exitOnCtrlC: false,
+        },
+      )
+      const frame = () => plain(stdout.frame)
+      const first = await until(frame, /more below · ↑↓ scroll/)
+      const lines = first.trimEnd().split("\n")
+      assert.ok(lines.length <= rows, `${lines.length} lines\n${first}`)
+      // The frame closes on the last row, the keys just above it.
+      assert.match(lines.at(-1)!, /^╰/)
+      assert.match(lines.at(-2)!, /scroll/)
+      // A blank row under the title row.
+      assert.match(lines[2], /^│\s+│$/)
+      const below = Number(/(\d+) more below/.exec(first)![1])
+      for (let i = 0; i < 12; i++) {
+        stdin.press(DOWN)
+        await tick(30)
+      }
+      const moved = frame()
+      app.unmount()
+      assert.match(moved, /\d+ more above/)
+      assert.ok(Number(/(\d+) more below/.exec(moved)![1]) < below, moved)
+      assert.ok(moved.trimEnd().split("\n").length <= rows)
+    })
+  }
 })

@@ -49,24 +49,21 @@ const Tile = ({
       flexShrink={0}
       height={TILE_LINES}
       flexDirection="column"
-      borderStyle="round"
-      borderColor={active ? (focused ? colors.info : SOFT) : colors.track}
+      borderStyle={active ? "bold" : "round"}
+      borderColor={active ? (focused ? colors.accent : SOFT) : colors.track}
       paddingX={1}
     >
-      <Text color={INK} bold wrap="truncate-end">
-        {active ? (
-          <Text color={focused ? colors.info : colors.muted}>❯ </Text>
-        ) : null}
+      <Text color={INK} bold={active} wrap="truncate-end">
         {row.service.name}
       </Text>
       <Box justifyContent="space-between" width={inner}>
         <Text color={TONE[label.tone]}>{label.text}</Text>
-        <Text color={SOFT}>{ageText(row.record)}</Text>
+        <Text color={INK}>{ageText(row.record)}</Text>
       </Box>
       <Text color={INK} wrap="truncate-end">
         {headline(row.record)}
       </Text>
-      <Text color={colors.muted} wrap="truncate-end">
+      <Text color={INK} wrap="truncate-end">
         {affected(row.record).join(", ") || " "}
       </Text>
     </Box>
@@ -83,7 +80,7 @@ const gridLines = (
   tile: number,
   perLine: number,
   sorted: boolean,
-): { cell: number; lines: Row[][] } => {
+): { cell: number; span: number; across: number; lines: Row[][] } => {
   const natural =
     MARK +
     widest(
@@ -103,7 +100,71 @@ const gridLines = (
   const lines: Row[][] = []
   for (let i = 0; i < rows.length; i += across)
     lines.push(rows.slice(i, i + across))
-  return { cell, lines }
+  return { cell, span, across, lines }
+}
+
+// The card geometry for a body `width` cells wide: how many cards share a
+// line, and how wide each one is.
+const tiles = (width: number) => {
+  const perLine = Math.max(1, Math.min(5, Math.floor((width + 1) / (TILE + 1))))
+  return { perLine, tile: Math.floor((width + 1) / perLine) - 1 }
+}
+
+// The board as the arrows see it: cards in rows of `perLine`, then the grid
+// in rows of `across`, each grid cell `span` card columns wide.
+export type BoardShape = {
+  cards: number
+  perLine: number
+  across: number
+  span: number
+  total: number
+}
+
+export const boardShape = (
+  rows: Row[],
+  width: number,
+  sorted: boolean,
+): BoardShape => {
+  const cards = sorted ? rows.filter(isCard).length : 0
+  const rest = sorted ? rows.filter((r) => !isCard(r)) : rows
+  const { perLine, tile } = tiles(width)
+  const { span, across } = gridLines(rest, width, tile, perLine, sorted)
+  return { cards, perLine, across, span, total: rows.length }
+}
+
+export type Direction = "left" | "right" | "up" | "down"
+
+// Where an arrow takes the cursor: ←→ along a row, ↑↓ down a column, across
+// the cards and the grid as one board. ← off the first column leaves the body
+// for the filters; every other edge holds still.
+export const boardStep = (
+  shape: BoardShape,
+  cursor: number,
+  dir: Direction,
+): number | "filters" => {
+  const { cards, perLine, across, span, total } = shape
+  const onCards = cursor < cards
+  const width = onCards ? perLine : across
+  const at = onCards ? cursor : cursor - cards
+  const size = onCards ? cards : total - cards
+  const col = at % width
+  const row = Math.floor(at / width)
+  const lastRow = Math.floor((size - 1) / width)
+  if (dir === "left") return col ? cursor - 1 : "filters"
+  if (dir === "right")
+    return col < width - 1 && at + 1 < size ? cursor + 1 : cursor
+  if (dir === "down") {
+    if (row < lastRow)
+      return Math.min(cursor + width, onCards ? cards - 1 : total - 1)
+    if (!onCards || cards === total) return cursor
+    return (
+      cards + Math.min(Math.floor(col / span), across - 1, total - cards - 1)
+    )
+  }
+  if (row) return cursor - width
+  if (onCards || !cards) return cursor
+  const lastCardRow = Math.floor((cards - 1) / perLine)
+  return Math.min(lastCardRow * perLine + col * span, cards - 1)
 }
 
 const GridLine = ({
@@ -144,7 +205,7 @@ const GridLine = ({
           ) : (
             <Spinner label="checking" />
           )}
-          {extra ? <Text color={colors.muted}> {extra}</Text> : null}
+          {extra ? <Text color={INK}> {extra}</Text> : null}
         </Box>
       )
     })}
@@ -241,8 +302,7 @@ export const BoardOverview = ({
   // reshuffles service by service.
   const cards = sorted ? rows.filter(isCard) : []
   const rest = sorted ? rows.filter((r) => !isCard(r)) : rows
-  const perLine = Math.max(1, Math.min(5, Math.floor((inner + 1) / (TILE + 1))))
-  const tile = Math.floor((inner + 1) / perLine) - 1
+  const { perLine, tile } = tiles(inner)
   const grid = gridLines(rest, inner, tile, perLine, sorted)
   const cardBands: Band[] = []
   for (let i = 0; i < cards.length; i += perLine)

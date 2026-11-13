@@ -1,16 +1,11 @@
-import type { ReactNode } from "react"
-import { Box, Text } from "ink"
-import { ScrollView, colors, type Span, type StyledLine } from "@kud/ink-ui"
+import { useState, type ReactNode } from "react"
+import { Box, Text, useInput } from "ink"
+import { colors, type Span, type StyledLine } from "@kud/ink-ui"
 import { ageOf, type ServiceRecord } from "../core/index.js"
 import { statusLabel, wordLabel, type Label, type Tone } from "../labels.js"
 import { visibleLength } from "../render.js"
 import { PaneTitle, Rule } from "./filter-column.js"
-import {
-  INK,
-  Pending,
-  pendingWidth,
-  useMeasuredHeight,
-} from "./overview-parts.js"
+import { INK, Pending, pendingWidth } from "./overview-parts.js"
 
 const TONE: Record<Tone, string> = {
   error: colors.error,
@@ -101,12 +96,18 @@ const heading = (title: string, count?: number): StyledLine => ({
   spans: [
     { text: " ".repeat(EDGE) },
     { text: title, bold: true, color: INK },
-    ...(count ? [{ text: `  ${count}`, color: colors.muted }] : []),
+    ...(count ? [{ text: `  ${count}`, color: INK }] : []),
   ],
 })
 const quiet = (text: string, at = EDGE): StyledLine => ({
   text: "",
   spans: [{ text: " ".repeat(at) }, { text, color: colors.muted }],
+})
+// Content in the normal text colour: a count is part of the answer, not an
+// aside, so it is never greyed out.
+const plain = (text: string, at = EDGE): StyledLine => ({
+  text: "",
+  spans: [{ text: " ".repeat(at) }, { text, color: INK }],
 })
 
 const dayStart = (ms: number): number => {
@@ -209,7 +210,7 @@ const nowLines = (
     body: { text: i.title, bold: true, color: INK },
     tail: {
       text: ageOf(i.date) ? `for ${ageOf(i.date)}` : "",
-      color: colors.secondary,
+      color: INK,
     },
   }))
   const sections: StyledLine[][] = []
@@ -222,10 +223,10 @@ const nowLines = (
     sections.push([
       heading("Affected components", affected.length),
       ...grid(affected, width, leadWidth, tailWidth),
-      ...(healthy > 0 ? [quiet(`${healthy} more operational`, ROW)] : []),
+      ...(healthy > 0 ? [plain(`${healthy} more operational`, ROW)] : []),
     ])
   else if (healthy > 0)
-    sections.push([quiet(`${healthy} components operational`)])
+    sections.push([plain(`${healthy} components operational`)])
   return sections.flatMap((s, i) => (i ? [BLANK, ...s] : s))
 }
 
@@ -268,21 +269,26 @@ const historyWidth = (record: ServiceRecord, at: number): number => {
   )
 }
 
-export const historyLines = (
+// A line the scroller shows, and whether it is an incident, so the note at
+// the cut counts incidents rather than lines.
+type Row = { line: StyledLine; entry?: boolean }
+const rowsOf = (lines: StyledLine[]): Row[] => lines.map((line) => ({ line }))
+
+const historyRows = (
   record: ServiceRecord,
   room: number,
   { at = EDGE, fill = false }: { at?: number; fill?: boolean } = {},
-): StyledLine[] => {
+): Row[] => {
   const { earlier } = split(record)
   const tailWidth = widest(earlier.map((i) => recentAgo(i.date)))
   const width = fill ? room : Math.min(room, MAX, historyWidth(record, at))
-  const lines: StyledLine[] = []
+  const lines: Row[] = []
   let last = ""
   for (const i of earlier) {
     const b = bucket(i.date)
     if (b !== last) {
-      if (last) lines.push(BLANK)
-      lines.push(quiet(b, at))
+      if (last) lines.push({ line: BLANK })
+      lines.push({ line: quiet(b, at) })
       last = b
     }
     lines.push(
@@ -291,18 +297,22 @@ export const historyLines = (
           {
             lead: { text: "" },
             body: { text: i.title, color: INK },
-            tail: { text: recentAgo(i.date), color: colors.muted },
+            tail: { text: recentAgo(i.date), color: colors.accent },
           },
         ],
         width,
         0,
         tailWidth,
         at + 2,
-      ),
+      ).map((line) => ({ line, entry: true })),
     )
   }
   return lines
 }
+
+export const historyLines = (
+  ...args: Parameters<typeof historyRows>
+): StyledLine[] => historyRows(...args).map((r) => r.line)
 
 const historyEmpty = (record: ServiceRecord): StyledLine[] =>
   record.historyFailed
@@ -322,11 +332,11 @@ const placeholderLines = (width: number, rows = 3): StyledLine[] =>
 
 // The stacked page, for terminals too narrow to split: the same sections in
 // one scrolling column, history last, every time on one edge.
-export const sectionsLines = (
+const sectionsRows = (
   record: ServiceRecord,
   full: number,
   historyBusy = false,
-): StyledLine[] => {
+): Row[] => {
   const { earlier } = split(record)
   const { leadWidth, tailWidth } = sizes(record)
   const width = Math.min(
@@ -334,19 +344,99 @@ export const sectionsLines = (
     Math.max(nowWidth(record, full), Math.min(MAX, historyWidth(record, ROW))),
   )
   const now = nowLines(record, width, leadWidth, tailWidth)
-  const history = historyLines(record, width, { at: ROW, fill: true })
+  const history = historyRows(record, width, { at: ROW, fill: true })
   return [
-    ...headline(record),
-    ...(now.length ? [BLANK, ...now] : []),
-    BLANK,
-    heading("History", earlier.length || undefined),
+    ...rowsOf([
+      ...headline(record),
+      ...(now.length ? [BLANK, ...now] : []),
+      BLANK,
+      heading("History", earlier.length || undefined),
+    ]),
     ...(history.length
       ? history
-      : historyBusy
-        ? placeholderLines(width - ROW)
-        : historyEmpty(record).map((l) => indent(l, ROW - EDGE))),
-    ...noteLines(record),
+      : rowsOf(
+          historyBusy
+            ? placeholderLines(width - ROW)
+            : historyEmpty(record).map((l) => indent(l, ROW - EDGE)),
+        )),
+    ...rowsOf(noteLines(record)),
   ]
+}
+
+export const sectionsLines = (
+  ...args: Parameters<typeof sectionsRows>
+): StyledLine[] => sectionsRows(...args).map((r) => r.line)
+
+const Line = ({ line }: { line: StyledLine }) =>
+  line.spans ? (
+    <Text wrap="truncate-end">
+      {line.spans.map((s, j) => (
+        <Text key={j} color={s.color} bold={s.bold} dimColor={s.dim}>
+          {s.text}
+        </Text>
+      ))}
+      {line.spans.length ? "" : " "}
+    </Text>
+  ) : (
+    <Text color={line.color} bold={line.bold} wrap="truncate-end">
+      {line.text || " "}
+    </Text>
+  )
+
+// Lines held to `height` rows. When they run past it, the last row becomes
+// the board's scroll note, "N more below · ↑↓ scroll", in the column `at`,
+// and the arrows move the window; a page never grows past the terminal.
+const Scroller = ({
+  rows,
+  height,
+  at,
+  isActive = true,
+}: {
+  rows: Row[]
+  height: number
+  at: number
+  isActive?: boolean
+}) => {
+  const [start, setStart] = useState(0)
+  const fits = rows.length <= height
+  const room = fits ? rows.length : Math.max(1, height - 1)
+  const end = Math.max(0, rows.length - room)
+  const top = Math.min(start, end)
+  useInput(
+    (input, key) => {
+      const move = (to: number) => setStart(Math.max(0, Math.min(end, to)))
+      if (key.downArrow || input === "j") move(top + 1)
+      if (key.upArrow || input === "k") move(top - 1)
+      if (key.pageDown || input === " " || input === "f") move(top + room)
+      if (key.pageUp || input === "b") move(top - room)
+      if (input === "g") move(0)
+      if (input === "G") move(end)
+    },
+    { isActive: isActive && !fits },
+  )
+  const incidents = (part: Row[]) => part.filter((r) => r.entry).length
+  const above = incidents(rows.slice(0, top))
+  const below = incidents(rows.slice(top + room))
+  const note = [
+    above ? `${above} more above` : "",
+    below ? `${below} more below` : "",
+    "↑↓ scroll",
+  ]
+    .filter(Boolean)
+    .join(" · ")
+  return (
+    <Box flexDirection="column" flexShrink={0} overflow="hidden">
+      {rows.slice(top, top + room).map((r, i) => (
+        <Line key={top + i} line={r.line} />
+      ))}
+      {fits ? null : (
+        <Text wrap="truncate-end">
+          {" ".repeat(at)}
+          <Text color={colors.muted}>{note}</Text>
+        </Text>
+      )}
+    </Box>
+  )
 }
 
 // Placeholder rows while a pane waits on the network: the overview's own
@@ -392,31 +482,39 @@ const pinnedLines = (record: ServiceRecord, left: number): StyledLine[] => {
 export const DetailBody = ({
   record,
   width,
+  height = Number.MAX_SAFE_INTEGER,
   historyBusy = false,
 }: {
   record: ServiceRecord | undefined
-  // The page's inner width, frame excluded.
+  // The page's inner width and the rows its body may take, frame, title row,
+  // the blank under it and the keys excluded.
   width: number
+  height?: number
   historyBusy?: boolean
 }) => {
-  const [ref, height] = useMeasuredHeight()
+  // Each pane's title and the blank under it come off the top.
+  const room = Math.max(1, height - 2)
   const left = Math.floor(width * NOW_SHARE)
   const right = width - left - BEFORE_RULE - 1 - AFTER_RULE
   const pinned = record ? pinnedLines(record, left) : []
   // The now pane does not scroll, so it splits only when all of it fits under
   // its title; otherwise the page stacks and scrolls as one.
-  const fits = height === 0 || pinned.length + 2 <= height
+  const fits = pinned.length <= room
   const { earlier } = record ? split(record) : { earlier: [] }
-  const history = record ? historyLines(record, right) : []
+  const history = record ? historyRows(record, right) : []
   return (
-    <Box ref={ref} flexDirection="column" flexGrow={1}>
+    <Box flexDirection="column" flexGrow={1}>
       {width < SPLIT_MIN || !fits ? (
         // One pane, titled as the split's first, scrolling with the keys.
         <Box flexDirection="column" flexGrow={1}>
           <PaneTitle label="Now" focused width={width} />
           <Text> </Text>
           {record ? (
-            <ScrollView lines={sectionsLines(record, width, historyBusy)} />
+            <Scroller
+              rows={sectionsRows(record, width, historyBusy)}
+              height={room}
+              at={ROW + 2}
+            />
           ) : (
             <PendingRows width={Math.min(48, width - EDGE)} />
           )}
@@ -425,10 +523,11 @@ export const DetailBody = ({
         <Box flexDirection="row" flexGrow={1}>
           <Pane title="Now" focused={false} width={left}>
             {record ? (
-              <ScrollView
-                lines={pinned}
+              <Scroller
+                rows={rowsOf(pinned)}
+                height={room}
+                at={EDGE}
                 isActive={false}
-                showIndicator={false}
               />
             ) : (
               <PendingRows width={left - EDGE} />
@@ -444,11 +543,16 @@ export const DetailBody = ({
             width={right}
           >
             {history.length ? (
-              <ScrollView lines={history} />
+              <Scroller rows={history} height={room} at={EDGE + 2} />
             ) : !record || historyBusy ? (
               <PendingRows width={Math.min(60, right - EDGE)} rows={4} />
             ) : (
-              <ScrollView lines={historyEmpty(record)} isActive={false} />
+              <Scroller
+                rows={rowsOf(historyEmpty(record))}
+                height={room}
+                at={EDGE}
+                isActive={false}
+              />
             )}
           </Pane>
         </Box>

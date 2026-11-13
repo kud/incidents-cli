@@ -93,8 +93,36 @@ const history = (
   },
 ]
 
+// A long record, for the detail page's scroll: forty past incidents spread
+// over several months, so the history runs well past any terminal's height.
+const LONG_TITLES = [
+  "Delayed build starts on hosted runners",
+  "Elevated error rates on artifact uploads",
+  "Webhook deliveries delayed",
+  "Degraded log streaming",
+  "Scheduled pipelines not triggering",
+  "Slow cache restores in eu-west",
+  "Intermittent checkout failures",
+  "Status checks not reported to pull requests",
+  "Increased queue times for macOS runners",
+  "Dashboard loading slowly",
+]
+const longHistory = (
+  id: string,
+): { title: string; link: string; date: string }[] =>
+  Array.from({ length: 40 }, (_, i) => ({
+    title: LONG_TITLES[(i * 3) % LONG_TITLES.length],
+    link: `https://status.${id}.example.com/incidents/l${i + 1}`,
+    date: ago(Math.round((i * 3.7 + 1.5) * 24 * 60)),
+  }))
+const LONG = new Set(["harbour-ci"])
+
 export const mockRecord = (service: Service, detail = false): ServiceRecord => {
-  const recent = detail ? history(service.id) : []
+  const recent = !detail
+    ? []
+    : LONG.has(service.id)
+      ? longHistory(service.id)
+      : history(service.id)
   const flags = { historyLoaded: detail }
   switch (service.id) {
     case "acme-cloud":
