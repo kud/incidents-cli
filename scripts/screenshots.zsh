@@ -1,7 +1,8 @@
 #!/usr/bin/env zsh
 # Usage: scripts/screenshots.zsh
 # Regenerates the README screenshots from the mock data (invented services
-# only), so they never show a real config. Needs vhs.
+# only), so they never show a real config. Needs vhs. 1694x990 px is 160
+# columns at size 16: wide enough for the full filter column.
 set -euo pipefail
 
 repo=${0:A:h:h}
@@ -16,8 +17,8 @@ shoot() {
 Output "$out/$name.gif"
 Set Shell zsh
 Set FontSize 16
-Set Width 1400
-Set Height 800
+Set Width 1694
+Set Height 990
 Set Padding 16
 Set Theme "Catppuccin Mocha"
 Hide
@@ -37,6 +38,6 @@ TAPE
   print "✓ $out/$name.png"
 }
 
-shoot overview ""
-shoot board 'Type "v"'
+shoot board ""
+shoot list 'Type "v"'
 shoot detail $'Enter\nSleep 2s'

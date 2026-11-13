@@ -6,9 +6,9 @@ Which of the services you depend on are declaring trouble right now: vendor stat
 
 It reads each vendor's own status page, worst first, and tells you what they have **declared**. A green row is not proof your calls work; a page it cannot read is shown as `? unreadable` and counts as not green, never as fine.
 
-![The overview: every service, worst first](assets/overview.png)
+![The board: a filter column that doubles as the tally, a card per service in trouble, the healthy ones in a grid](assets/board.png)
 
-![The board: a tally, a card per service in trouble, the rest in a grid](assets/board.png)
+![The list (v): every service, worst first, with a preview of the selected one](assets/list.png)
 
 ![One service in detail: open incidents, affected components, earlier ones](assets/detail.png)
 
