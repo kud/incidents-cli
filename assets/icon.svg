@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Three service status rows, weighted worst first</title>
+  <desc id="desc">A compact stack of three status rows. The top row is the heaviest, then the second, then the third, so priority is readable even in monochrome and at small size.</desc>
+  <!-- The order is encoded in shape weight first, colour second. -->
+  <g>
+    <circle cx="26" cy="30" r="13" fill="#D45E54"/>
+    <rect x="52" y="24" width="62" height="12" rx="6" fill="#D45E54"/>
+
+    <circle cx="26" cy="65" r="10" fill="#A98B72"/>
+    <rect x="52" y="60.5" width="56" height="9" rx="4.5" fill="#A98B72"/>
+
+    <circle cx="26" cy="99" r="6.5" fill="#C6B094"/>
+    <rect x="52" y="96" width="50" height="6" rx="3" fill="#C6B094"/>
+  </g>
+</svg>
