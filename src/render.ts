@@ -122,6 +122,7 @@ export const renderDetail = (
   const current = new Set(
     record.active.flatMap((i) => [i.link, i.title]).filter(Boolean),
   )
+  const upcoming = record.upcoming?.length ?? 0
   const earlier = record.recent
     .filter((i) => !current.has(i.link) && !current.has(i.title))
     .slice(0, 7)
@@ -153,10 +154,10 @@ export const renderDetail = (
     ...(record.historyFailed
       ? [s.muted("  History unavailable: its feed could not be read."), ""]
       : []),
-    ...(record.upcoming.length
+    ...(upcoming
       ? [
           s.muted(
-            `  ${record.upcoming.length} upcoming maintenance${record.upcoming.length === 1 ? "" : "s"}`,
+            `  ${upcoming} upcoming maintenance${upcoming === 1 ? "" : "s"}`,
           ),
           "",
         ]

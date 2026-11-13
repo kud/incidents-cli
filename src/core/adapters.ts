@@ -39,7 +39,8 @@ const text = async (url: string, service: Service, opts: ReadOptions) =>
 // History comes from the incidents API, which lists what actually happened.
 // The RSS feed is read only for what is scheduled: on a page that plans a lot
 // of maintenance, its slots are all taken by future windows dated by their
-// start, and the past incidents never make it in.
+// start, and the past incidents never make it in. An unreadable feed
+// leaves `upcoming` null: unknown, never "nothing planned".
 const readHistory = async (
   base: string,
   service: Service,
@@ -53,7 +54,7 @@ const readHistory = async (
   const upcoming =
     feed.status === "fulfilled"
       ? splitUpcoming(parseRss(feed.value)).upcoming
-      : []
+      : null
   if (incidents.status === "rejected")
     return { recent: [], upcoming, historyFailed: true }
   return {

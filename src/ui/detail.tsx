@@ -189,7 +189,7 @@ const noteLines = (record: ServiceRecord): StyledLine[] =>
 
 // Scheduled windows are kept out of history but never dropped silently.
 const upcomingLines = (record: ServiceRecord, at = EDGE): StyledLine[] => {
-  const n = record.upcoming.length
+  const n = record.upcoming?.length ?? 0
   return n
     ? [BLANK, quiet(`${n} upcoming maintenance${n === 1 ? "" : "s"}`, at)]
     : []

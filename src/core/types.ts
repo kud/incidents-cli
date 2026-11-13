@@ -45,7 +45,7 @@ export interface ServiceRecord {
   components: ServiceComponent[]
   active: Incident[]
   recent: HistoryItem[]
-  upcoming: HistoryItem[]
+  upcoming: HistoryItem[] | null
   historyLoaded: boolean
   historyFailed: boolean
   note: string

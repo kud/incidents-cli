@@ -324,7 +324,7 @@ describe("reading", () => {
     const overview = await readService(service(), { fetch: f })
     assert.equal(overview.historyLoaded, false)
     assert.equal(overview.recent.length, 0)
-    assert.equal(overview.upcoming.length, 0)
+    assert.equal(overview.upcoming?.length, 0)
     const detail = await readService(service(), { fetch: f, detail: true })
     assert.equal(detail.historyLoaded, true)
     assert.deepEqual(
@@ -346,7 +346,7 @@ describe("reading", () => {
     assert.ok(detail.recent.every((i) => !/^ZZ/.test(i.title)))
     assert.ok(detail.recent.every((i) => !(Date.parse(i.date) > Date.now())))
     assert.deepEqual(
-      detail.upcoming.map((i) => i.title),
+      detail.upcoming?.map((i) => i.title),
       [
         "ZZC (Gammaford) on 2099-11-17",
         "ZZB (Betatown) on 2099-11-23",
@@ -378,10 +378,10 @@ describe("reading", () => {
     assert.equal(detail.fetched, "ok")
     assert.equal(detail.historyFailed, true)
     assert.deepEqual(detail.recent, [])
-    assert.equal(detail.upcoming.length, 3)
+    assert.equal(detail.upcoming?.length, 3)
   })
 
-  it("an unreadable feed costs the maintenance count, not the history", async () => {
+  it("an unreadable feed leaves maintenance unknown, not zero, and keeps the history", async () => {
     const detail = await readService(service(), {
       detail: true,
       fetch: maintenancePage({
@@ -390,7 +390,7 @@ describe("reading", () => {
     })
     assert.equal(detail.historyFailed, false)
     assert.equal(detail.recent.length, 4)
-    assert.deepEqual(detail.upcoming, [])
+    assert.equal(detail.upcoming, null)
   })
 
   it("a plain feed of scheduled windows is not a fresh post", async () => {
@@ -402,7 +402,7 @@ describe("reading", () => {
     })
     assert.equal(detail.indicator, "none")
     assert.deepEqual(detail.recent, [])
-    assert.equal(detail.upcoming.length, 3)
+    assert.equal(detail.upcoming?.length, 3)
   })
 
   it("reports each record as it lands, in the order they answer", async () => {
