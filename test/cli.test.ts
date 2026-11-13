@@ -67,7 +67,7 @@ describe("cli without a terminal", () => {
     const r = run("services", "--mock")
     assert.equal(r.status, 0)
     const lines = r.stdout.trim().split("\n")
-    assert.equal(lines.length, 7)
+    assert.equal(lines.length, 21)
     assert.equal(lines[4], "demo-feed\tDemo Feed\tfeed")
     assert.equal(lines[0], "acme-cloud\tAcme Cloud\t")
   })

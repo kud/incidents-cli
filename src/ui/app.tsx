@@ -1,55 +1,41 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Box, useInput, useWindowSize } from "ink"
 import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type RefObject,
-} from "react"
-import {
-  Box,
-  Text,
-  measureElement,
-  useInput,
-  useWindowSize,
-  type DOMElement,
-} from "ink"
-import {
+  FilterBar,
   Page,
-  SelectableRow,
   Spinner,
+  Tabs,
   colors,
   useAppKeys,
+  useFilterMode,
   useListCursor,
+  useTabs,
+  type TabItem,
 } from "@kud/ink-ui"
-import {
-  isClear,
-  worstFirst,
-  type Service,
-  type ServiceRecord,
-} from "../core/index.js"
-import { declaredText, statusLabel, type Label, type Tone } from "../labels.js"
-import { visibleLength } from "../render.js"
+import { isClear, worstFirst, type ServiceRecord } from "../core/index.js"
+import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
 import { DetailBody } from "./detail.js"
+import { BoardOverview } from "./overview-board.js"
+import { ListOverview } from "./overview-list.js"
+import {
+  FILTERS,
+  glyphOf,
+  hiddenParts,
+  narrow,
+  navOrder,
+  type FilterId,
+  type Row,
+} from "./overview-model.js"
+import type { View } from "../view.js"
+import { FRAME_SIDES, TONE } from "./overview-parts.js"
 
-const TONE: Record<Tone, string> = {
-  error: colors.error,
-  warning: colors.warning,
-  info: colors.info,
-  success: colors.success,
-  muted: colors.muted,
-}
-
-const GAP = 2
-// SelectableRow's gutter: two spaces, the marker, a space.
+// SelectableRow's gutter, kept for the detail body's indent.
 const GUTTER = 4
-// The round border on each side and the air Page leaves inside it.
-const FRAME_SIDES = 4
-const CHECKING: Label = { text: "◌ checking", tone: "muted" }
 
-type Row = { service: Service; record?: ServiceRecord }
+const FILTER_TONE: Partial<Record<FilterId, string>> = {
+  trouble: colors.error,
+}
 
 const keepHistory = (
   previous: ServiceRecord | undefined,
@@ -63,121 +49,6 @@ const keepHistory = (
         historyFailed: previous.historyFailed,
       }
     : next
-
-const widest = (cells: string[]): number =>
-  Math.max(0, ...cells.map(visibleLength))
-
-// The rows the body actually gets from its flex parent, measured after layout
-// rather than derived from a chrome constant, so a wrapped hint line or a
-// resized terminal never pushes the list past the frame.
-const useMeasuredHeight = (): [RefObject<DOMElement | null>, number] => {
-  const ref = useRef<DOMElement | null>(null)
-  const [height, setHeight] = useState(0)
-  useLayoutEffect(() => {
-    if (!ref.current) return
-    const measured = measureElement(ref.current).height
-    if (measured !== height) setHeight(measured)
-  })
-  return [ref, height]
-}
-
-const OverviewRow = ({
-  row,
-  active,
-  statusWidth,
-  nameWidth,
-}: {
-  row: Row
-  active: boolean
-  statusWidth: number
-  nameWidth: number
-}) => {
-  const label = row.record ? statusLabel(row.record.indicator) : CHECKING
-  const loud =
-    row.record !== undefined &&
-    row.record.indicator !== "none" &&
-    row.record.indicator !== "link"
-  return (
-    <SelectableRow active={active}>
-      <Box width={statusWidth + GAP} flexShrink={0}>
-        {row.record ? (
-          <Text color={TONE[label.tone]}>{label.text}</Text>
-        ) : (
-          <Spinner label="checking" />
-        )}
-      </Box>
-      <Box width={nameWidth + GAP} flexShrink={0}>
-        <Text bold={loud || active} wrap="truncate-end">
-          {row.service.name}
-        </Text>
-      </Box>
-      <Box flexGrow={1} flexShrink={1}>
-        <Text
-          bold={loud}
-          color={loud ? undefined : colors.muted}
-          wrap="truncate-end"
-        >
-          {row.record ? declaredText(row.record) : ""}
-        </Text>
-      </Box>
-    </SelectableRow>
-  )
-}
-
-const Overview = ({
-  rows,
-  cursor,
-  note,
-}: {
-  rows: Row[]
-  cursor: number
-  note: string | null
-}) => {
-  const [ref, height] = useMeasuredHeight()
-  const statusWidth = widest([
-    "Status",
-    CHECKING.text,
-    ...rows.map(
-      (r) => (r.record ? statusLabel(r.record.indicator) : CHECKING).text,
-    ),
-  ])
-  const nameWidth = widest(["Service", ...rows.map((r) => r.service.name)])
-  const visible = Math.max(1, height)
-  const start = Math.max(
-    0,
-    Math.min(cursor - Math.floor(visible / 2), rows.length - visible),
-  )
-  return (
-    <Box flexDirection="column" flexGrow={1}>
-      <Box paddingLeft={GUTTER}>
-        <Box width={statusWidth + GAP} flexShrink={0}>
-          <Text color={colors.muted}>Status</Text>
-        </Box>
-        <Box width={nameWidth + GAP} flexShrink={0}>
-          <Text color={colors.muted}>Service</Text>
-        </Box>
-        <Text color={colors.muted}>Declared</Text>
-      </Box>
-      <Box ref={ref} flexDirection="column" flexGrow={1} overflow="hidden">
-        {rows.slice(start, start + visible).map((row, i) => (
-          <OverviewRow
-            key={row.service.id}
-            row={row}
-            active={start + i === cursor}
-            statusWidth={statusWidth}
-            nameWidth={nameWidth}
-          />
-        ))}
-      </Box>
-      <Box flexDirection="column" paddingLeft={GUTTER} marginTop={1}>
-        <Text color={colors.muted}>
-          Declared status only: green is not proof your calls work.
-        </Text>
-        {note ? <Text color={colors.muted}>{note}</Text> : null}
-      </Box>
-    </Box>
-  )
-}
 
 const Detail = ({
   record,
@@ -196,6 +67,35 @@ const Detail = ({
     </Box>
   )
 
+const tabItems = (
+  counts: Record<FilterId, number>,
+  width: number,
+): TabItem<FilterId>[] => {
+  // The coloured status glyph rides in the marker, which never folds; when the
+  // strip will not fit, the glyph moves to the icon so the tabs can fold to it.
+  const strip = FILTERS.reduce(
+    (sum, f) => sum + f.name.length + String(counts[f.id]).length + 8,
+    0,
+  )
+  const fold = strip > width
+  return FILTERS.map((f) => {
+    const label =
+      f.holds && f.id !== "trouble" ? statusLabel(f.holds.at(-1)!) : null
+    const glyph = label ? glyphOf(label) : f.id === "trouble" ? "▲" : "◇"
+    return fold
+      ? { value: f.id, label: f.name, count: counts[f.id], icon: glyph }
+      : {
+          value: f.id,
+          label: f.name,
+          count: counts[f.id],
+          marker: `${glyph} `,
+          markerColor: label
+            ? TONE[label.tone]
+            : (FILTER_TONE[f.id] ?? colors.muted),
+        }
+  })
+}
+
 export const App = ({
   source,
   initialDetail,
@@ -212,6 +112,9 @@ export const App = ({
   const [order, setOrder] = useState<string[]>(() =>
     source.services.map((s) => s.id),
   )
+  const [sorted, setSorted] = useState(false)
+  const [view, setView] = useState<View>(source.view ?? "list")
+  const [folded, setFolded] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
   const [detailBusy, setDetailBusy] = useState(false)
   const loadRef = useRef<AbortController | null>(null)
@@ -233,6 +136,7 @@ export const App = ({
       })
       .then((all) => {
         setOrder(worstFirst(all).map((record) => record.id))
+        setSorted(true)
         setLoading(false)
         setUpdatedAt(new Date())
       })
@@ -276,10 +180,46 @@ export const App = ({
     [order, records, source],
   )
 
-  const { cursor } = useListCursor(rows.length, {
-    vimKeys: true,
-    isActive: detailId === null,
+  const atRoot = detailId === null
+  const filterMode = useFilterMode({ isActive: atRoot })
+  const { term, typing } = filterMode
+  const searchCounts = narrow(rows, { filter: "all", folded: false, term })
+  const tabWidth = columns - FRAME_SIDES
+  const items = tabItems(searchCounts.counts, tabWidth)
+  const { active: tab = "all" } = useTabs(items, {
+    initial: "all",
+    isActive: atRoot && !typing,
   })
+  const narrowed = narrow(rows, { filter: tab, folded, term })
+  const visible = navOrder(view, narrowed.rows)
+  const hidden = hiddenParts(narrowed.hidden, { filter: tab, term })
+
+  const { cursor, setCursor } = useListCursor(visible.length, {
+    vimKeys: !typing,
+    isActive: atRoot,
+  })
+
+  // The cursor holds a service, not a position: across the re-sort, a tab,
+  // the fold, a search or a view switch it stays on the row it was on, and
+  // only falls back to a position when that row has left the list.
+  const selected = useRef<string | null>(null)
+  const shape = visible.map((r) => r.service.id).join("\n")
+  const lastShape = useRef(shape)
+  useEffect(() => {
+    if (lastShape.current !== shape) {
+      lastShape.current = shape
+      const at = visible.findIndex((r) => r.service.id === selected.current)
+      if (at >= 0) {
+        if (at !== cursor) setCursor(at)
+        return
+      }
+      const fallback = Math.max(0, Math.min(cursor, visible.length - 1))
+      if (fallback !== cursor) setCursor(fallback)
+      selected.current = visible[fallback]?.service.id ?? null
+      return
+    }
+    selected.current = visible[cursor]?.service.id ?? null
+  }, [shape, cursor])
 
   const openDetail = (id: string) => {
     setDetailId(id)
@@ -293,17 +233,27 @@ export const App = ({
   }
 
   useAppKeys({
+    isActive: !typing,
     onBack: () => {
-      if (detailId === null) return false
-      closeDetail()
-      return true
+      if (detailId !== null) {
+        closeDetail()
+        return true
+      }
+      if (filterMode.active) {
+        filterMode.clear()
+        return true
+      }
+      return false
     },
   })
 
   useInput((input, key) => {
+    if (typing) return
     if (input === "r") return detailId ? loadDetail(detailId) : load()
-    if (key.return && detailId === null && rows[cursor])
-      openDetail(rows[cursor].service.id)
+    if (!atRoot) return
+    if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
+    if (input === "z") return setFolded((f) => !f)
+    if (key.return && visible[cursor]) openDetail(visible[cursor].service.id)
   })
 
   const trouble = Object.values(records).filter((r) => !isClear(r.indicator))
@@ -353,6 +303,7 @@ export const App = ({
     )
   }
 
+  const Overview = view === "board" ? BoardOverview : ListOverview
   return (
     <Page
       fill
@@ -363,16 +314,41 @@ export const App = ({
       status={status}
       alert={alert}
       critical={critical}
-      counter={rows.length ? `${cursor + 1} of ${rows.length}` : undefined}
+      tabs={<Tabs active={tab} items={items} width={tabWidth} />}
+      filter={
+        <FilterBar
+          term={term}
+          typing={typing}
+          caret={filterMode.caret}
+          matches={term ? visible.length : undefined}
+        />
+      }
+      counter={
+        visible.length ? `${cursor + 1} of ${visible.length}` : undefined
+      }
       page="root"
       help={false}
-      hints={[
-        ["↑↓", "move"],
-        ["⏎", "open"],
-        ["r", "refresh"],
-      ]}
+      hints={
+        typing
+          ? filterMode.hints
+          : [
+              ["↑↓", "move"],
+              ["⏎", "open"],
+              ["←→", "filter"],
+              ["/", "search"],
+              ["z", folded ? "show ok" : "fold ok"],
+              ["v", view === "list" ? "board" : "list"],
+              ["r", "refresh"],
+            ]
+      }
     >
-      <Overview rows={rows} cursor={cursor} note={source.note} />
+      <Overview
+        rows={visible}
+        cursor={cursor}
+        sorted={sorted}
+        hidden={hidden}
+        note={source.note}
+      />
     </Page>
   )
 }

@@ -5,11 +5,13 @@ import {
   type ServiceRecord,
 } from "./core/index.js"
 import type { Config } from "./config.js"
+import type { View } from "./view.js"
 import { MOCK_SERVICES, mockRecord } from "./mock.js"
 
 export interface Source {
   services: Service[]
   note: string | null
+  view?: View
   readAll(opts: {
     signal?: AbortSignal
     onRecord?: (record: ServiceRecord) => void
@@ -32,6 +34,7 @@ export const liveSource = (
   return {
     services: Object.values(config.services),
     note,
+    view: config.view,
     readAll: ({ signal, onRecord }) =>
       readAll(Object.values(config.services), { ...shared, signal, onRecord }),
     readDetail: (service, { signal }) =>

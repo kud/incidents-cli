@@ -104,3 +104,32 @@ describe("config", () => {
     )
   })
 })
+
+describe("config view", () => {
+  it("defaults to the list", () => {
+    const dir = home()
+    assert.equal(loadConfig(envFor(dir)).view, "list")
+    write(dir, "config.yml", "services:\n  npm: {}\n")
+    assert.equal(loadConfig(envFor(dir)).view, "list")
+  })
+
+  it("reads view, a later drop-in winning", () => {
+    const dir = home()
+    write(dir, "config.yml", "view: board\nservices:\n  npm: {}\n")
+    assert.equal(loadConfig(envFor(dir)).view, "board")
+    write(dir, "config.d/10-list.yml", "view: list\n")
+    assert.equal(loadConfig(envFor(dir)).view, "list")
+  })
+
+  it("rejects any other view, naming the file", () => {
+    const dir = home()
+    const path = write(dir, "config.yml", "view: grid\nservices:\n  npm: {}\n")
+    assert.throws(
+      () => loadConfig(envFor(dir)),
+      (error: unknown) =>
+        error instanceof ConfigError &&
+        error.message.includes(path) &&
+        /view must be list or board, not 'grid'/.test(error.message),
+    )
+  })
+})

@@ -19,7 +19,44 @@ export const MOCK_SERVICES: Service[] = [
   { ...base("demo-feed", "Demo Feed"), kind: "rss", aliases: ["feed"] },
   base("placeholder-mail", "Placeholder Mail"),
   { ...base("test-docs", "Test Docs"), kind: "link" },
+  base("brightgate-auth", "Brightgate Auth"),
+  base("copperleaf-pay", "Copperleaf Pay"),
+  base("ferrous-storage", "Ferrous Storage"),
+  base("kettle-metrics", "Kettle Metrics"),
+  base("larkspur-search", "Larkspur Search"),
+  base("mossline-dns", "Mossline DNS"),
+  { ...base("orbitly-push", "Orbitly Push"), kind: "rss" },
+  base("quillpad-notes", "Quillpad Notes"),
+  base("tidewater-queue", "Tidewater Queue"),
+  base("driftwood-logs", "Driftwood Logs"),
+  base("harbour-ci", "Harbour CI"),
+  base("saltmarsh-mail", "Saltmarsh Mail"),
+  base("thimble-chat", "Thimble Chat"),
+  base("wicker-video", "Wicker Video"),
 ]
+
+// Minor trouble: title, minutes since it started, the components it touches.
+const MINOR: Record<string, [string, number, string[]]> = {
+  "example-cdn": [
+    "Slow cache purges in Europe",
+    194,
+    ["Edge cache", "Purge API"],
+  ],
+  "brightgate-auth": ["Delayed SSO logins for some workspaces", 38, ["SSO"]],
+  "copperleaf-pay": ["Elevated payout latency", 412, ["Payouts"]],
+  "ferrous-storage": [
+    "Intermittent upload failures in us-east",
+    75,
+    ["Uploads", "Multipart API"],
+  ],
+  "kettle-metrics": [
+    "Ingestion delays of up to 10 minutes",
+    1630,
+    ["Ingestion"],
+  ],
+  "larkspur-search": ["Search results may be stale", 22, ["Indexing"]],
+  "mossline-dns": ["Propagation delays for new records", 263, ["DNS updates"]],
+}
 
 const record = (
   service: Service,
@@ -81,13 +118,19 @@ export const mockRecord = (service: Service, detail = false): ServiceRecord => {
         ],
         recent,
       })
-    case "example-cdn":
+    case "orbitly-push":
       return record(service, {
         ...flags,
         indicator: "minor",
-        description: "Minor Service Outage",
-        components: [{ name: "Edge cache", status: "degraded_performance" }],
-        recent,
+        description: "Posted 42m ago: Push delivery delayed on Android",
+        recent: [
+          {
+            title: "Push delivery delayed on Android",
+            link: "https://status.orbitly-push.example.com/p1",
+            date: ago(42),
+          },
+          ...recent,
+        ],
       })
     case "demo-maintenance":
       return record(service, {
@@ -95,6 +138,14 @@ export const mockRecord = (service: Service, detail = false): ServiceRecord => {
         indicator: "maintenance",
         description: "Scheduled maintenance in progress",
         components: [{ name: "Database", status: "under_maintenance" }],
+        active: [
+          {
+            title: "Database engine upgrade",
+            link: "https://status.demo-maintenance.example.com/incidents/w1",
+            date: ago(25),
+            impact: "maintenance",
+          },
+        ],
         recent,
       })
     case "demo-feed":
@@ -118,6 +169,27 @@ export const mockRecord = (service: Service, detail = false): ServiceRecord => {
         historyLoaded: false,
       })
     default:
+      if (MINOR[service.id]) {
+        const [title, minutes, hit] = MINOR[service.id]
+        return record(service, {
+          ...flags,
+          indicator: "minor",
+          description: "Partially Degraded Service",
+          components: [
+            ...hit.map((name) => ({ name, status: "degraded_performance" })),
+            { name: "Dashboard", status: "operational" },
+          ],
+          active: [
+            {
+              title,
+              link: `https://status.${service.id}.example.com/incidents/m1`,
+              date: ago(minutes),
+              impact: "minor",
+            },
+          ],
+          recent,
+        })
+      }
       return record(service, {
         ...flags,
         components: [

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { load } from "js-yaml"
+import { isView, type View } from "./view.js"
 import {
   ConfigError,
   DEFAULT_IDS,
@@ -18,10 +19,12 @@ export interface Config {
   timeout: number
   source: "default" | "file"
   path: string
+  view: View
 }
 
 interface ConfigFile {
   timeout?: number
+  view?: unknown
   services?: RawServices
 }
 
@@ -51,6 +54,21 @@ const rejectReserved = (path: string, services: RawServices): void => {
         `${path}: service '${id}' uses the reserved word '${word}'`,
       )
   }
+}
+
+// The last file to set `view` wins, like `timeout`; a value that is neither
+// view is an error naming the file rather than a silent fallback.
+const viewOf = (files: string[], parsed: ConfigFile[]): View => {
+  let view: View = "list"
+  parsed.forEach((file, i) => {
+    if (file.view === undefined) return
+    if (!isView(file.view))
+      throw new ConfigError(
+        `${files[i]}: view must be list or board, not '${String(file.view)}'`,
+      )
+    view = file.view
+  })
+  return view
 }
 
 const filesFor = (env: NodeJS.ProcessEnv): string[] => {
@@ -88,6 +106,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
       timeout: DEFAULT_TIMEOUT_MS,
       source: "default",
       path: defaultConfigPath(env),
+      view: "list",
     }
   const parsed = files.map(readFile)
   parsed.forEach((file, i) => rejectReserved(files[i], file.services ?? {}))
@@ -105,6 +124,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
     timeout,
     source: "file",
     path: files[0],
+    view: viewOf(files, parsed),
   }
 }
 

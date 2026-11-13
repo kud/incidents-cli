@@ -22,7 +22,7 @@ describe("overview", () => {
     assert.deepEqual(order.slice(0, 3), [
       "Acme Cloud",
       "Placeholder Mail",
-      "Example CDN",
+      "Brightgate Auth",
     ])
     assert.match(out, /● major\s+Acme Cloud/)
     assert.match(out, /\? unreadable\s+Placeholder Mail/)
