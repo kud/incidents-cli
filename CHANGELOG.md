@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.1.3 — 2026-11-13
+
+### Highlights
+
+- The interactive list shows every service at once, in config order, with a spinner in each row that resolves in place; rows sort worst-first once, after every service has answered, so nothing shuffles while you read. ([c3767cf](https://github.com/kud/incidents-cli/commit/c3767cfb4b22ac68a45bc3c0c58624eadf8e83ce))
+
+### Documentation
+
+- The README now shows screenshots of the overview and a single-service detail view, generated from mock data by `scripts/screenshots.zsh`. ([7f76c6d](https://github.com/kud/incidents-cli/commit/7f76c6d890df96fd92b9648f4b8d7adb0f802abb))
+
+<details>
+<summary>Internal (1 commit)</summary>
+
+- `.gitignore` now excludes local environment files and local tool config. ([a7dbcb6](https://github.com/kud/incidents-cli/commit/a7dbcb6bbdf9ee001c6ef83a42f78e18ef3abcde))
+
+</details>
+
+---
+
 ## 0.1.2 — 2026-11-13
 
 ### Fixes
