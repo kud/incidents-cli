@@ -3,9 +3,11 @@ import {
   fromAws,
   fromFeed,
   fromSlack,
+  fromStatuspageIncidents,
   fromStatuspageSummary,
   newestFirst,
   parseRss,
+  splitUpcoming,
 } from "./parse.js"
 import type { Adapted, ReadOptions, Service } from "./types.js"
 
@@ -34,19 +36,32 @@ const json = async (url: string, service: Service, opts: ReadOptions) =>
 const text = async (url: string, service: Service, opts: ReadOptions) =>
   (await fetchWith(url, service, opts)).text()
 
+// History comes from the incidents API, which lists what actually happened.
+// The RSS feed is read only for what is scheduled: on a page that plans a lot
+// of maintenance, its slots are all taken by future windows dated by their
+// start, and the past incidents never make it in.
 const readHistory = async (
-  url: string,
+  base: string,
   service: Service,
   opts: ReadOptions,
-): Promise<Pick<Adapted, "recent" | "historyFailed">> => {
-  try {
-    return {
-      recent: newestFirst(parseRss(await text(url, service, opts))),
-      historyFailed: false,
-    }
-  } catch (error) {
-    if (opts.signal?.aborted) throw error
-    return { recent: [], historyFailed: true }
+): Promise<Pick<Adapted, "recent" | "upcoming" | "historyFailed">> => {
+  const [incidents, feed] = await Promise.allSettled([
+    json(`${base}/api/v2/incidents.json`, service, opts),
+    text(`${base}/history.rss`, service, opts),
+  ])
+  opts.signal?.throwIfAborted()
+  const upcoming =
+    feed.status === "fulfilled"
+      ? splitUpcoming(parseRss(feed.value)).upcoming
+      : []
+  if (incidents.status === "rejected")
+    return { recent: [], upcoming, historyFailed: true }
+  return {
+    recent: newestFirst(
+      splitUpcoming(fromStatuspageIncidents(incidents.value, base)).past,
+    ),
+    upcoming,
+    historyFailed: false,
   }
 }
 
@@ -59,18 +74,20 @@ export const ADAPTERS: Record<
     const [summary, history] = await Promise.all([
       json(`${base}/api/v2/summary.json`, service, opts),
       opts.detail
-        ? readHistory(`${base}/history.rss`, service, opts)
-        : { recent: [], historyFailed: false },
+        ? readHistory(base, service, opts)
+        : { recent: [], upcoming: [], historyFailed: false },
     ])
     return { ...fromStatuspageSummary(summary), ...history }
   },
   rss: async (service, opts) => {
-    const items = newestFirst(
+    const { past, upcoming } = splitUpcoming(
       parseRss(await text(service.feed ?? "", service, opts)),
     )
+    const items = newestFirst(past)
     return {
       ...fromFeed(items, { windowHours: service.window ?? 6 }),
       recent: items,
+      upcoming,
     }
   },
   slack: async (service, opts) =>

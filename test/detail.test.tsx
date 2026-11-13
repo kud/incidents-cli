@@ -45,6 +45,7 @@ const busy: ServiceRecord = {
     link: `https://status.acme-cloud.example.com/incidents/h${i}`,
     date: ago(2 + i * 60),
   })),
+  upcoming: [],
   historyLoaded: true,
   historyFailed: false,
   note: "",
@@ -86,6 +87,30 @@ describe("detail view", () => {
     const labels = lines.filter((l) => /^ \S/.test(l))
     assert.ok(labels.length >= 2)
     assert.equal(new Set(labels).size, labels.length)
+  })
+
+  it("counts scheduled maintenance under the history, never dated as now", () => {
+    const upcoming = Array.from({ length: 8 }, (_, i) => ({
+      title: `ZZ${i} maintenance`,
+      link: "",
+      date: new Date(Date.now() + (i + 3) * 86_400_000).toISOString(),
+    }))
+    const lines = historyLines({ ...busy, upcoming }, 80).map(text)
+    assert.ok(lines.every((l) => !/ZZ\d/.test(l)))
+    assert.match(lines.at(-1) ?? "", /^ 8 upcoming maintenances$/)
+    const empty = sectionsLines({ ...busy, recent: [], upcoming }, 120).map(
+      text,
+    )
+    assert.ok(empty.some((l) => /No past incidents on record/.test(l)))
+    assert.ok(empty.some((l) => /8 upcoming maintenances/.test(l)))
+  })
+
+  it("shows an undated incident with no age at all", () => {
+    const recent = [{ title: "Undated incident", link: "", date: "" }]
+    const row = historyLines({ ...busy, recent }, 80)
+      .map(text)
+      .find((l) => /Undated incident/.test(l))
+    assert.equal(row?.trimEnd(), "   Undated incident")
   })
 
   it("groups the history pane under period headings", () => {

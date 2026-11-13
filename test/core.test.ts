@@ -1,12 +1,14 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import {
+  ageOf,
   ConfigError,
   decodeUtf16,
   exitCode,
   fromAws,
   fromFeed,
   fromSlack,
+  fromStatuspageIncidents,
   fromStatuspageSummary,
   mergeRegistry,
   parseRss,
@@ -14,6 +16,7 @@ import {
   readService,
   resolveService,
   selectServices,
+  splitUpcoming,
   worstFirst,
   type Indicator,
 } from "../src/core/index.js"
@@ -155,6 +158,51 @@ describe("adapters", () => {
     assert.match(recent.description ?? "", /Newest incident/)
   })
 
+  it("splits future-dated items off, keeping undated ones as history", () => {
+    const now = Date.parse("2026-11-13T12:00:00Z")
+    const { past, upcoming } = splitUpcoming(
+      [
+        { title: "Later", link: "", date: "Tue, 24 Nov 2026 18:00:00 +0000" },
+        { title: "Done", link: "", date: "Thu, 12 Nov 2026 10:00:00 GMT" },
+        { title: "Undated", link: "", date: "" },
+        { title: "Sooner", link: "", date: "Mon, 16 Nov 2026 08:00:00 +0000" },
+      ],
+      now,
+    )
+    assert.deepEqual(
+      past.map((i) => i.title),
+      ["Done", "Undated"],
+    )
+    assert.deepEqual(
+      upcoming.map((i) => i.title),
+      ["Sooner", "Later"],
+    )
+  })
+
+  it("statuspage incidents take their start, then their creation", () => {
+    const items = fromStatuspageIncidents(
+      JSON.parse(fixture("incidents.json")),
+      "https://status.acme.example",
+    )
+    assert.deepEqual(
+      items.map((i) => i.date),
+      [
+        "2026-01-01T10:00:00Z",
+        "2025-12-30T13:54:00Z",
+        "2025-12-28T22:39:00Z",
+        "",
+      ],
+    )
+  })
+
+  it("a date ahead of now has no age, a missing one neither", () => {
+    const now = Date.parse("2026-11-13T12:00:00Z")
+    assert.equal(ageOf("2026-11-24T18:00:00Z", now), "")
+    assert.equal(ageOf("", now), "")
+    assert.equal(ageOf("2026-11-13T12:00:30Z", now), "1m")
+    assert.equal(ageOf("2026-11-13T10:00:00Z", now), "2h")
+  })
+
   it("rss items unwrap CDATA", () => {
     const items = parseRss(
       "<rss><item><title><![CDATA[A & B]]></title><link>l</link><pubDate>d</pubDate></item></rss>",
@@ -261,30 +309,100 @@ describe("reading", () => {
     assert.equal(seen, "incidents-cli/9.9.9")
   })
 
-  it("fetches history only on detail, newest first", async () => {
-    const f = fakeFetch({
+  // A page that schedules a lot of maintenance: its RSS feed is all future
+  // windows dated by their start, and its past incidents only in the API.
+  const maintenancePage = (over: Record<string, unknown> = {}) =>
+    fakeFetch({
       [`${base}/api/v2/summary.json`]: summary,
-      [`${base}/history.rss`]: { body: fixture("history.rss") },
+      [`${base}/api/v2/incidents.json`]: { body: fixture("incidents.json") },
+      [`${base}/history.rss`]: { body: fixture("maintenance-history.rss") },
+      ...over,
     })
+
+  it("fetches history only on detail, newest first", async () => {
+    const f = maintenancePage()
     const overview = await readService(service(), { fetch: f })
     assert.equal(overview.historyLoaded, false)
     assert.equal(overview.recent.length, 0)
+    assert.equal(overview.upcoming.length, 0)
     const detail = await readService(service(), { fetch: f, detail: true })
     assert.equal(detail.historyLoaded, true)
-    assert.equal(detail.recent[0].title, "Newest incident")
+    assert.deepEqual(
+      detail.recent.map((i) => i.title),
+      [
+        "Elevated API errors",
+        "Slow worker start-up",
+        "Queue delays in one region",
+        "Dashboard login loop",
+      ],
+    )
   })
 
-  it("flags a failed history feed instead of swallowing it", async () => {
+  it("keeps scheduled maintenance out of history, counted apart", async () => {
+    const detail = await readService(service(), {
+      fetch: maintenancePage(),
+      detail: true,
+    })
+    assert.ok(detail.recent.every((i) => !/^ZZ/.test(i.title)))
+    assert.ok(detail.recent.every((i) => !(Date.parse(i.date) > Date.now())))
+    assert.deepEqual(
+      detail.upcoming.map((i) => i.title),
+      [
+        "ZZC (Gammaford) on 2099-11-17",
+        "ZZB (Betatown) on 2099-11-23",
+        "ZZA (Alphaville) on 2099-11-24",
+      ],
+    )
+  })
+
+  it("dates an incident by its start, never by now", async () => {
+    const detail = await readService(service(), {
+      fetch: maintenancePage(),
+      detail: true,
+    })
+    const by = Object.fromEntries(detail.recent.map((i) => [i.title, i]))
+    assert.equal(by["Slow worker start-up"].date, "2025-12-30T13:54:00Z")
+    assert.equal(by["Queue delays in one region"].date, "2025-12-28T22:39:00Z")
+    assert.equal(by["Dashboard login loop"].date, "")
+    assert.equal(ageOf(by["Dashboard login loop"].date), "")
+    assert.equal(by["Slow worker start-up"].link, `${base}/incidents/i3`)
+  })
+
+  it("flags a failed history read instead of swallowing it", async () => {
     const detail = await readService(service(), {
       detail: true,
-      fetch: fakeFetch({
-        [`${base}/api/v2/summary.json`]: summary,
-        [`${base}/history.rss`]: { status: 500, body: "" },
+      fetch: maintenancePage({
+        [`${base}/api/v2/incidents.json`]: { status: 500, body: "" },
       }),
     })
     assert.equal(detail.fetched, "ok")
     assert.equal(detail.historyFailed, true)
     assert.deepEqual(detail.recent, [])
+    assert.equal(detail.upcoming.length, 3)
+  })
+
+  it("an unreadable feed costs the maintenance count, not the history", async () => {
+    const detail = await readService(service(), {
+      detail: true,
+      fetch: maintenancePage({
+        [`${base}/history.rss`]: { status: 500, body: "" },
+      }),
+    })
+    assert.equal(detail.historyFailed, false)
+    assert.equal(detail.recent.length, 4)
+    assert.deepEqual(detail.upcoming, [])
+  })
+
+  it("a plain feed of scheduled windows is not a fresh post", async () => {
+    const feed = "https://feed.acme.example/rss"
+    const detail = await readService(service({ kind: "rss", feed }), {
+      fetch: fakeFetch({
+        [feed]: { body: fixture("maintenance-history.rss") },
+      }),
+    })
+    assert.equal(detail.indicator, "none")
+    assert.deepEqual(detail.recent, [])
+    assert.equal(detail.upcoming.length, 3)
   })
 
   it("reports each record as it lands, in the order they answer", async () => {

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Acme Edge Status - Incident History</title>
+    <link>https://status.acme.example</link>
+    <description>Statuspage</description>
+    <pubDate>Fri, 13 Nov 2026 11:00:00 +0000</pubDate>
+    <item>
+      <title>ZZA (Alphaville) on 2099-11-24</title>
+      <description>&lt;strong&gt;Scheduled&lt;/strong&gt; - Planned work in the ZZA data centre.</description>
+      <pubDate>Tue, 24 Nov 2099 18:00:00 +0000</pubDate>
+      <maintenanceEndDate>Tue, 24 Nov 2099 22:00:00 +0000</maintenanceEndDate>
+      <link>https://status.acme.example/incidents/m3</link>
+      <guid>https://status.acme.example/incidents/m3</guid>
+    </item>
+    <item>
+      <title>ZZB (Betatown) on 2099-11-23</title>
+      <description>&lt;strong&gt;Scheduled&lt;/strong&gt; - Planned work in the ZZB data centre.</description>
+      <pubDate>Mon, 23 Nov 2099 18:00:00 +0000</pubDate>
+      <maintenanceEndDate>Mon, 23 Nov 2099 22:00:00 +0000</maintenanceEndDate>
+      <link>https://status.acme.example/incidents/m2</link>
+      <guid>https://status.acme.example/incidents/m2</guid>
+    </item>
+    <item>
+      <title>ZZC (Gammaford) on 2099-11-17</title>
+      <description>&lt;strong&gt;Scheduled&lt;/strong&gt; - Planned work in the ZZC data centre.</description>
+      <pubDate>Tue, 17 Nov 2099 06:00:00 +0000</pubDate>
+      <maintenanceEndDate>Tue, 17 Nov 2099 10:00:00 +0000</maintenanceEndDate>
+      <link>https://status.acme.example/incidents/m1</link>
+      <guid>https://status.acme.example/incidents/m1</guid>
+    </item>
+  </channel>
+</rss>

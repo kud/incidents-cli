@@ -61,6 +61,7 @@ const keepHistory = (
     ? {
         ...next,
         recent: previous.recent,
+        upcoming: previous.upcoming,
         historyLoaded: true,
         historyFailed: previous.historyFailed,
       }

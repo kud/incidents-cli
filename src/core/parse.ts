@@ -30,6 +30,42 @@ export const newestFirst = <T extends { date: string }>(items: T[]): T[] =>
     return tb - ta
   })
 
+// Statuspage dates a scheduled maintenance by when it starts, so a feed that
+// carries them holds items from the future. Those are not history; an undated
+// item stays in it, shown without an age.
+export const splitUpcoming = <T extends { date: string }>(
+  items: T[],
+  now = Date.now(),
+): { past: T[]; upcoming: T[] } => {
+  const ahead = (i: T) => timeOf(i.date) > now
+  return {
+    past: items.filter((i) => !ahead(i)),
+    upcoming: items
+      .filter(ahead)
+      .sort((a, b) => timeOf(a.date) - timeOf(b.date)),
+  }
+}
+
+interface StatuspageIncidents {
+  incidents?: {
+    id?: string
+    name: string
+    shortlink?: string | null
+    started_at?: string | null
+    created_at?: string | null
+  }[]
+}
+
+export const fromStatuspageIncidents = (
+  list: StatuspageIncidents,
+  base: string,
+): HistoryItem[] =>
+  (list?.incidents ?? []).map((i) => ({
+    title: i.name,
+    link: i.id ? `${base}/incidents/${i.id}` : (i.shortlink ?? ""),
+    date: i.started_at ?? i.created_at ?? "",
+  }))
+
 interface StatuspageSummary {
   status?: { indicator?: string; description?: string }
   components?: { name: string; status: string; group?: boolean }[]

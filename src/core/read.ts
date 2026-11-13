@@ -21,6 +21,7 @@ export const readService = async (
     components: [],
     active: [],
     recent: [],
+    upcoming: [],
     historyLoaded: false,
     historyFailed: false,
     note: service.note ?? "",

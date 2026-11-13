@@ -27,6 +27,7 @@ const rec = (id: string, over: Partial<ServiceRecord> = {}): ServiceRecord => ({
   components: [],
   active: [],
   recent: [],
+  upcoming: [],
   historyLoaded: false,
   historyFailed: false,
   note: "",

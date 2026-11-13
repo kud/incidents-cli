@@ -8,9 +8,13 @@ export const age = (ms: number): string => {
   return `${Math.floor(hours / 24)}d`
 }
 
+// A minute of clock skew still reads as just now. Anything further ahead has
+// not happened yet and has no age: it is never shown as a minute old.
+const SKEW_MS = 60_000
+
 export const ageOf = (raw: string, now = Date.now()): string => {
   const ms = now - new Date(raw).getTime()
-  return raw && !Number.isNaN(ms) ? age(Math.max(0, ms)) : ""
+  return raw && !Number.isNaN(ms) && ms > -SKEW_MS ? age(Math.max(0, ms)) : ""
 }
 
 export const formatWhen = (raw: string): string => {

@@ -153,6 +153,14 @@ export const renderDetail = (
     ...(record.historyFailed
       ? [s.muted("  History unavailable: its feed could not be read."), ""]
       : []),
+    ...(record.upcoming.length
+      ? [
+          s.muted(
+            `  ${record.upcoming.length} upcoming maintenance${record.upcoming.length === 1 ? "" : "s"}`,
+          ),
+          "",
+        ]
+      : []),
     ...(record.note ? [s.muted(`  ${record.note}`), ""] : []),
     ...(options.note ? [s.muted(`  ${options.note}`), ""] : []),
   ].join("\n")

@@ -118,7 +118,8 @@ const bucket = (raw: string, now = Date.now()): string => {
   const ms = new Date(raw).getTime()
   if (Number.isNaN(ms)) return "Undated"
   const days = Math.round((dayStart(now) - dayStart(ms)) / 86_400_000)
-  if (days <= 0) return "Today"
+  if (days < 0) return "Upcoming"
+  if (days === 0) return "Today"
   if (days === 1) return "Yesterday"
   if (days < 7) return "This week"
   const d = new Date(ms)
@@ -185,6 +186,14 @@ const headline = (record: ServiceRecord): StyledLine[] => {
 
 const noteLines = (record: ServiceRecord): StyledLine[] =>
   record.note ? [BLANK, quiet(record.note)] : []
+
+// Scheduled windows are kept out of history but never dropped silently.
+const upcomingLines = (record: ServiceRecord, at = EDGE): StyledLine[] => {
+  const n = record.upcoming.length
+  return n
+    ? [BLANK, quiet(`${n} upcoming maintenance${n === 1 ? "" : "s"}`, at)]
+    : []
+}
 
 const historyFailedLines = (record: ServiceRecord): StyledLine[] =>
   record.historyFailed
@@ -361,17 +370,19 @@ const historyRows = (
       ).map((line) => ({ line })),
     )
   }
-  return lines
+  return lines.length ? [...lines, ...rowsOf(upcomingLines(record, at))] : lines
 }
 
 export const historyLines = (
   ...args: Parameters<typeof historyRows>
 ): StyledLine[] => historyRows(...args).map((r) => r.line)
 
-const historyEmpty = (record: ServiceRecord): StyledLine[] =>
-  record.historyFailed
+const historyEmpty = (record: ServiceRecord): StyledLine[] => [
+  ...(record.historyFailed
     ? historyFailedLines(record)
-    : [quiet("No past incidents on record.")]
+    : [quiet("No past incidents on record.")]),
+  ...upcomingLines(record),
+]
 
 // The loaders' bars as plain lines, held still, for a pane that scrolls
 // as one list and so cannot hold the animated rows.

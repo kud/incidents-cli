@@ -72,6 +72,7 @@ const record = (
   components: [],
   active: [],
   recent: [],
+  upcoming: [],
   historyLoaded: false,
   historyFailed: false,
   note: "",

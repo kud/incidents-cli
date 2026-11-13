@@ -45,6 +45,7 @@ export interface ServiceRecord {
   components: ServiceComponent[]
   active: Incident[]
   recent: HistoryItem[]
+  upcoming: HistoryItem[]
   historyLoaded: boolean
   historyFailed: boolean
   note: string
@@ -58,6 +59,7 @@ export type Adapted = Partial<
     | "components"
     | "active"
     | "recent"
+    | "upcoming"
     | "historyFailed"
   >
 > &
