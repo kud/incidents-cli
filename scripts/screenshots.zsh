@@ -27,8 +27,9 @@ Enter
 Sleep 5s
 $keys
 Show
-Sleep 400ms
+Sleep 1s
 Screenshot "$out/$name.png"
+Sleep 1s
 Hide
 Type "q"
 Sleep 300ms
@@ -39,5 +40,5 @@ TAPE
 }
 
 shoot board ""
-shoot list 'Type "v"'
+shoot list $'Type "v"\nSleep 1500ms'
 shoot detail $'Enter\nSleep 2s'
