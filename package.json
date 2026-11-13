@@ -1,6 +1,6 @@
 {
   "name": "@kud/incidents-cli",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Which of the services you depend on are declaring trouble right now: vendor status pages in one terminal view.",
   "type": "module",
   "bin": {
