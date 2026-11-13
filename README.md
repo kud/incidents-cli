@@ -14,12 +14,12 @@ Node 22 or later.
 
 ## Use
 
-| Command                    | What it does                                                          |
-| -------------------------- | --------------------------------------------------------------------- |
-| `incidents`                | Interactive view: live list, worst first, rows fill in as they answer |
-| `incidents <service>`      | Interactive view opened on that service's detail                      |
-| `incidents list [service]` | One-shot static output: the overview, or one service's detail         |
-| `incidents services`       | Configured ids and aliases, one per line (for shell completion)       |
+| Command                    | What it does                                                             |
+| -------------------------- | ------------------------------------------------------------------------ |
+| `incidents`                | Interactive view: live list, worst first, rows fill in as they answer    |
+| `incidents <service>`      | Interactive view opened on that service's detail                         |
+| `incidents list [service]` | One-shot static output: the overview, or one service's detail            |
+| `incidents services`       | One service per line: id, name, aliases (comma-separated), tab-separated |
 
 Keys in the interactive view: `↑↓` or `j k` move, `⏎` opens a service, `esc` or `⌫` goes back, `r` refreshes, `q` quits.
 
@@ -56,7 +56,7 @@ services:
 
 With no config file the defaults are `github`, `npm`, `cloudflare` and `claude`, and one muted line names the config path.
 
-`list` and `services` are reserved words and cannot be a service id or alias.
+`list`, `services` and `help` are reserved words and cannot be a service id or alias; loading fails with exit 2 and a message naming the file and the id. Any other configuration error also exits 2.
 
 ### Built-in services
 

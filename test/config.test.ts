@@ -85,4 +85,22 @@ describe("config", () => {
     )
     assert.throws(() => loadConfig(envFor(dir)), /reserved/)
   })
+
+  it("names the file and id for a reserved word, id or alias", () => {
+    const dir = home()
+    const path = write(
+      dir,
+      "config.d/10-x.yml",
+      "services:\n  github:\n    aliases: [help]\n",
+    )
+    write(dir, "config.yml", "services:\n  github: {}\n")
+    assert.throws(
+      () => loadConfig(envFor(dir)),
+      (e: Error) =>
+        e instanceof ConfigError &&
+        e.message.includes(path) &&
+        e.message.includes("github") &&
+        e.message.includes("help"),
+    )
+  })
 })

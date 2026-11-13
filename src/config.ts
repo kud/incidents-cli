@@ -5,6 +5,7 @@ import { load } from "js-yaml"
 import {
   ConfigError,
   DEFAULT_IDS,
+  RESERVED_WORDS,
   DEFAULT_TIMEOUT_MS,
   mergeServices,
   selectServices,
@@ -36,6 +37,19 @@ const readFile = (path: string): ConfigFile => {
     return parsed as ConfigFile
   } catch (error) {
     throw new ConfigError(`${path}: ${(error as Error).message}`)
+  }
+}
+
+const rejectReserved = (path: string, services: RawServices): void => {
+  for (const [id, fields] of Object.entries(services)) {
+    const aliases = Array.isArray(fields?.aliases) ? fields.aliases : []
+    const word = [id, ...aliases]
+      .map(String)
+      .find((w) => RESERVED_WORDS.includes(w.toLowerCase()))
+    if (word)
+      throw new ConfigError(
+        `${path}: service '${id}' uses the reserved word '${word}'`,
+      )
   }
 }
 
@@ -76,6 +90,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
       path: defaultConfigPath(env),
     }
   const parsed = files.map(readFile)
+  parsed.forEach((file, i) => rejectReserved(files[i], file.services ?? {}))
   const selected = parsed.reduce<RawServices>(
     (acc, file) => mergeServices(acc, file.services ?? {}),
     {},
@@ -86,7 +101,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv = process.env): Config => {
       .filter((t) => typeof t === "number")
       .at(-1) ?? DEFAULT_TIMEOUT_MS
   return {
-    services: selectServices(selected),
+    services: selectServices(selected, undefined, files.join(", ")),
     timeout,
     source: "file",
     path: files[0],

@@ -63,15 +63,20 @@ describe("cli without a terminal", () => {
     assert.match(r.stderr, /no service 'nope'/)
   })
 
-  it("services prints ids and aliases, one per line", () => {
+  it("services prints id, name and aliases, one service per line", () => {
     const r = run("services", "--mock")
     assert.equal(r.status, 0)
-    assert.deepEqual(r.stdout.trim().split("\n").slice(-4), [
-      "demo-feed",
-      "feed",
-      "placeholder-mail",
-      "test-docs",
-    ])
+    const lines = r.stdout.trim().split("\n")
+    assert.equal(lines.length, 7)
+    assert.equal(lines[4], "demo-feed\tDemo Feed\tfeed")
+    assert.equal(lines[0], "acme-cloud\tAcme Cloud\t")
+  })
+
+  it("CI set prints the plain detail, like list <service>", () => {
+    const a = run("acme-cloud", "--mock")
+    const b = run("list", "acme-cloud", "--mock")
+    assert.equal(a.stdout, b.stdout)
+    assert.equal(a.status, 1)
   })
 
   it("--screen list prints the screen names", () => {

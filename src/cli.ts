@@ -141,7 +141,9 @@ export const list = async (
 export const services = (flags: Flags, version: string): number => {
   const { source } = makeContext(flags, version)
   write(
-    source.services.flatMap((s) => [s.id, ...s.aliases.map(String)]).join("\n"),
+    source.services
+      .map((s) => [s.id, s.name, s.aliases.join(",")].join("\t"))
+      .join("\n"),
   )
   return 0
 }

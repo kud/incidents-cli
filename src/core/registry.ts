@@ -3,7 +3,7 @@ import type { Kind, Service } from "./types.js"
 
 export type RawServices = Record<string, Record<string, unknown> | null>
 
-export const RESERVED_WORDS = ["list", "services"]
+export const RESERVED_WORDS = ["list", "services", "help"]
 const KINDS: Kind[] = ["statuspage", "rss", "slack", "aws", "link"]
 
 export class ConfigError extends Error {}
@@ -58,6 +58,7 @@ const problemsOf = (svc: Service): string[] => {
 export const selectServices = (
   selected: RawServices,
   catalogue: Record<string, unknown> = CATALOGUE,
+  source = "",
 ): Record<string, Service> => {
   const registry = finalise(
     mergeServices(
@@ -73,7 +74,8 @@ export const selectServices = (
   const problems = Object.values(registry).flatMap((svc) =>
     problemsOf(svc).map((p) => `service '${svc.id}': ${p}`),
   )
-  if (problems.length) throw new ConfigError(problems.join("\n"))
+  if (problems.length)
+    throw new ConfigError((source ? `${source}: ` : "") + problems.join("\n"))
   return registry
 }
 
