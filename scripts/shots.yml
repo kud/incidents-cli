@@ -1,0 +1,23 @@
+# README screenshots, from the mock data (invented services only), so they
+# never show a real config. 1694x990 px at font 16 is 160 columns: wide enough
+# for the full filter column. Regenerate with vhs; every shot runs from the
+# repo root, hidden until the frame is taken.
+out: assets
+build: npm run --silent build
+width: 1694
+height: 990
+font_size: 16
+padding: 16
+theme: Catppuccin Mocha
+settle: 5s
+key_settle: 1500ms
+command: node dist/bin/incidents.js --mock
+shots:
+  - name: board
+  - name: list
+    steps:
+      - type: v
+  - name: detail
+    steps:
+      - key: Enter
+      - sleep: 500ms

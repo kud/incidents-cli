@@ -198,7 +198,7 @@ npm test
 
 `--mock` swaps every data source for fixtures; `--screen <name>` opens straight on a screen (`--screen list` prints the names).
 
-`scripts/screenshots.zsh` regenerates the images above from the same fixtures (needs [vhs](https://github.com/charmbracelet/vhs)).
+`scripts/shots.yml` describes the images above: each one is the same fixtures, captured with [vhs](https://github.com/charmbracelet/vhs) at 160 columns, nothing typed or prompted in frame.
 
 ## Licence
 
