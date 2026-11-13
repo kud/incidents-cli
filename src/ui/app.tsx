@@ -17,31 +17,22 @@ import {
 } from "ink"
 import {
   Page,
-  ScrollView,
   SelectableRow,
   Spinner,
   colors,
   useAppKeys,
   useListCursor,
-  type StyledLine,
 } from "@kud/ink-ui"
 import {
-  ageOf,
   isClear,
-  whenLabel,
   worstFirst,
   type Service,
   type ServiceRecord,
 } from "../core/index.js"
-import {
-  declaredText,
-  statusLabel,
-  wordLabel,
-  type Label,
-  type Tone,
-} from "../labels.js"
+import { declaredText, statusLabel, type Label, type Tone } from "../labels.js"
 import { visibleLength } from "../render.js"
 import type { Source } from "../source.js"
+import { DetailBody } from "./detail.js"
 
 const TONE: Record<Tone, string> = {
   error: colors.error,
@@ -72,13 +63,6 @@ const keepHistory = (
         historyFailed: previous.historyFailed,
       }
     : next
-
-const fit = (text: string, width: number): string => {
-  if (width <= 0) return ""
-  const chars = [...text]
-  if (chars.length <= width) return text + " ".repeat(width - chars.length)
-  return `${chars.slice(0, Math.max(0, width - 1)).join("")}…`
-}
 
 const widest = (cells: string[]): number =>
   Math.max(0, ...cells.map(visibleLength))
@@ -191,108 +175,6 @@ const Overview = ({
   )
 }
 
-type Cell = { text: string; color?: string; bold?: boolean }
-
-// One table as ScrollView lines: a muted header, then rows whose last-but-one
-// column takes whatever the terminal has left, so the When column always lines
-// up at the right edge of the text rather than wherever the longest title ends.
-const tableLines = (
-  header: string[],
-  rows: Cell[][],
-  width: number,
-  flex: number,
-): StyledLine[] => {
-  const widths = header.map((h, i) =>
-    widest([h, ...rows.map((r) => r[i]?.text ?? "")]),
-  )
-  const fixed = widths.reduce((sum, w, i) => (i === flex ? sum : sum + w), 0)
-  widths[flex] = Math.max(
-    8,
-    Math.min(widths[flex], width - fixed - GAP * (header.length - 1)),
-  )
-  const line = (cells: Cell[]): StyledLine => ({
-    text: "",
-    spans: cells.map((cell, i) => ({
-      text:
-        i === cells.length - 1
-          ? cell.text
-          : fit(cell.text, widths[i]) + " ".repeat(GAP),
-      color: cell.color,
-      bold: cell.bold,
-    })),
-  })
-  return [
-    line(header.map((text) => ({ text, color: colors.muted }))),
-    ...rows.map(line),
-  ]
-}
-
-const BLANK: StyledLine = { text: "" }
-
-const detailLines = (record: ServiceRecord, width: number): StyledLine[] => {
-  const status = statusLabel(record.indicator)
-  const broken = record.components.filter((c) => c.status !== "operational")
-  const healthy = record.components.length - broken.length
-  const tone = (label: Label): Cell => ({
-    text: label.text,
-    color: TONE[label.tone],
-  })
-  const happening: Cell[][] = [
-    ...broken.map((c) => [
-      tone(wordLabel(c.status)),
-      { text: c.name },
-      { text: "now" },
-    ]),
-    ...record.active.map((i) => {
-      const since = ageOf(i.date)
-      return [
-        tone(wordLabel(i.impact)),
-        { text: i.title },
-        { text: since ? `since ${since}` : "" },
-      ]
-    }),
-  ]
-  const current = new Set(
-    record.active.flatMap((i) => [i.link, i.title]).filter(Boolean),
-  )
-  const earlier: Cell[][] = record.recent
-    .filter((i) => !current.has(i.link) && !current.has(i.title))
-    .map((i) => [
-      { text: i.title, color: colors.muted },
-      { text: whenLabel(i.date), color: colors.muted },
-    ])
-  const muted = (text: string): StyledLine[] => [
-    BLANK,
-    { text, color: colors.muted },
-  ]
-  return [
-    {
-      text: "",
-      spans: [
-        { text: status.text, color: TONE[status.tone] },
-        { text: `  ${record.description}  `, bold: true },
-        {
-          text: record.url.replace(/^https:\/\//, ""),
-          color: colors.muted,
-        },
-      ],
-    },
-    ...(happening.length
-      ? [BLANK, ...tableLines(["Status", "What", "When"], happening, width, 1)]
-      : []),
-    ...(broken.length === 0 && healthy > 0
-      ? muted(`${healthy} components operational`)
-      : []),
-    ...(earlier.length
-      ? [BLANK, ...tableLines(["Earlier", "When"], earlier, width, 0)]
-      : []),
-    ...(record.historyFailed
-      ? muted("History unavailable: its feed could not be read.")
-      : []),
-    ...(record.note ? muted(record.note) : []),
-  ]
-}
-
 const Detail = ({
   record,
   width,
@@ -302,7 +184,7 @@ const Detail = ({
 }) =>
   record ? (
     <Box flexDirection="column" flexGrow={1} paddingLeft={GUTTER}>
-      <ScrollView lines={detailLines(record, width)} />
+      <DetailBody record={record} width={width} />
     </Box>
   ) : (
     <Box paddingLeft={GUTTER}>
@@ -449,8 +331,6 @@ export const App = ({
             ? { text: "↻ loading history…", tone: "busy" }
             : status
         }
-        alert={alert}
-        critical={critical}
         page="nested"
         help={false}
         hints={[

@@ -6,6 +6,16 @@ import { mockSource } from "../src/source.js"
 
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
 
+const until = async (frame: () => string | undefined, pattern: RegExp) => {
+  for (
+    let waited = 0;
+    waited < 3000 && !pattern.test(frame() ?? "");
+    waited += 25
+  )
+    await tick(25)
+  return frame() ?? ""
+}
+
 describe("interactive view", () => {
   it("fills rows in as services answer, worst first", async () => {
     const { lastFrame, unmount } = render(<App source={mockSource(5)} />)
@@ -21,9 +31,9 @@ describe("interactive view", () => {
     const { lastFrame, stdin, unmount } = render(<App source={mockSource(5)} />)
     await tick(300)
     stdin.write("\r")
-    await tick(150)
-    assert.match(lastFrame() ?? "", /Elevated API error rates/)
-    assert.match(lastFrame() ?? "", /Delayed webhook delivery/)
+    const detail = await until(lastFrame, /Delayed webhook delivery/)
+    assert.match(detail, /Elevated API error rates/)
+    assert.match(detail, /Delayed webhook delivery/)
     stdin.write(String.fromCharCode(27))
     await tick(150)
     assert.match(lastFrame() ?? "", /Declared status only/)
