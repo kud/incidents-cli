@@ -306,7 +306,7 @@ export const App = ({
   }
   const status = loading
     ? {
-        text: Object.keys(records).length ? "↻ refreshing…" : "↻ checking…",
+        text: updatedAt ? "↻ refreshing…" : "↻ checking…",
         tone: "busy" as const,
       }
     : updated
