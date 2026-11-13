@@ -176,6 +176,25 @@ const ClearGrid = ({
   )
 }
 
+// The cards the window left out, so a scrolled board never hides one silently.
+const offscreen = (
+  lines: number[][],
+  start: number,
+  fit: number,
+  total: number,
+): string => {
+  const shown = lines.slice(start, start + fit).flat().length
+  const above = lines.slice(0, start).flat().length
+  const below = total - shown - above
+  return [
+    above ? `${above} more above` : "",
+    below ? `${below} more below` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ")
+    .concat(" · ↑↓ scroll")
+}
+
 // `rows` arrive in the board's walking order (cards, then the grid), so the
 // cursor index reads straight across both.
 export const BoardOverview = ({
@@ -233,7 +252,15 @@ export const BoardOverview = ({
             ))}
           </Box>
         ))}
-        {cards.length && rest.length ? <Text> </Text> : null}
+        {lines.length > fit ? (
+          <Box paddingLeft={MARK}>
+            <Text color={colors.muted}>
+              {offscreen(lines, start, fit, cards.length)}
+            </Text>
+          </Box>
+        ) : cards.length && rest.length ? (
+          <Text> </Text>
+        ) : null}
         <ClearGrid
           rows={rest}
           offset={cards.length}

@@ -6,6 +6,8 @@ It reads each vendor's own status page, worst first, and tells you what they hav
 
 ![The overview: every service, worst first](assets/overview.png)
 
+![The board: a tally, a card per service in trouble, the rest in a grid](assets/board.png)
+
 ![One service in detail: open incidents, affected components, earlier ones](assets/detail.png)
 
 ## Install
@@ -25,7 +27,7 @@ Node 22 or later.
 | `incidents list [service]` | One-shot static output: the overview, or one service's detail            |
 | `incidents services`       | One service per line: id, name, aliases (comma-separated), tab-separated |
 
-Keys in the interactive view: `↑↓` or `j k` move, `⏎` opens a service, `esc` or `⌫` goes back, `r` refreshes, `q` quits.
+Keys in the interactive view: `↑↓` or `j k` move, `⏎` opens a service, `←→` (or `tab`) moves between the status tabs (All, Trouble, then one per status), `/` searches names and aliases, `z` folds the operational services into one line, `v` switches between the list and the board, `esc` clears a search or goes back, `⌫` goes back, `r` refreshes, `q` quits. Whenever a tab, the fold or a search hides services, a line under the list says how many and which key brings them back.
 
 Add `--json` to any form for JSON records. With no TTY on stdin or stdout, or `CI` set, every form falls back to the static output (or JSON), so pipes, `$(...)` and cron never hang.
 
@@ -45,6 +47,7 @@ The interactive view exits 0 on quit.
 
 ```yaml
 timeout: 4000 # milliseconds per request, default 4000
+view: list # the view to open on: list (default) or board
 services:
   github: {} # take the built-in entry as it is
   aws:

@@ -17,13 +17,13 @@ Output "$out/$name.gif"
 Set Shell zsh
 Set FontSize 16
 Set Width 1400
-Set Height 640
+Set Height 800
 Set Padding 16
 Set Theme "Catppuccin Mocha"
 Hide
 Type "clear; node $repo/dist/bin/incidents.js --mock"
 Enter
-Sleep 3s
+Sleep 5s
 $keys
 Show
 Sleep 400ms
@@ -38,4 +38,5 @@ TAPE
 }
 
 shoot overview ""
+shoot board 'Type "v"'
 shoot detail $'Enter\nSleep 2s'
