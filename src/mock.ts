@@ -37,11 +37,7 @@ export const MOCK_SERVICES: Service[] = [
 
 // Minor trouble: title, minutes since it started, the components it touches.
 const MINOR: Record<string, [string, number, string[]]> = {
-  "example-cdn": [
-    "Slow cache purges in Europe",
-    194,
-    ["Edge cache", "Purge API"],
-  ],
+  "example-cdn": ["Slow cache purges in Europe", 194, ["Edge cache"]],
   "brightgate-auth": ["Delayed SSO logins for some workspaces", 38, ["SSO"]],
   "copperleaf-pay": ["Elevated payout latency", 412, ["Payouts"]],
   "ferrous-storage": [
@@ -57,6 +53,52 @@ const MINOR: Record<string, [string, number, string[]]> = {
   "larkspur-search": ["Search results may be stale", 22, ["Indexing"]],
   "mossline-dns": ["Propagation delays for new records", 263, ["DNS updates"]],
 }
+
+// A busy page: one component in trouble among dozens of points of presence
+// that are fine, the shape a large CDN's status page takes. Invented places.
+const POPS = [
+  "Ashmere",
+  "Brackenford",
+  "Caldwick",
+  "Dunhollow",
+  "Eastreach",
+  "Fennimore",
+  "Glasswater",
+  "Harrowgate",
+  "Ivybridge",
+  "Juniper Bay",
+  "Kestrel Point",
+  "Larchmont",
+  "Marrowby",
+  "Northwold",
+  "Oakhaven",
+  "Pellmoor",
+  "Quarry Hill",
+  "Ravensholt",
+  "Saltcombe",
+  "Thornbury",
+  "Underfell",
+  "Valewood",
+  "Westmarch",
+  "Yarrowdale",
+  "Amberley",
+  "Birchcombe",
+  "Coldharbour",
+  "Dovecote",
+  "Elmstead",
+  "Foxley",
+  "Greywell",
+  "Hazelmere",
+  "Inchcape",
+  "Kingsfold",
+  "Lowmoor",
+  "Millbrook",
+  "Nettlecombe",
+  "Otterburn",
+  "Pinewick",
+  "Rushmere",
+].map((place) => `${place} - (${place.slice(0, 3).toUpperCase()})`)
+const BUSY = new Set(["example-cdn"])
 
 const record = (
   service: Service,
@@ -207,6 +249,9 @@ export const mockRecord = (service: Service, detail = false): ServiceRecord => {
           components: [
             ...hit.map((name) => ({ name, status: "degraded_performance" })),
             { name: "Dashboard", status: "operational" },
+            ...(BUSY.has(service.id)
+              ? POPS.map((name) => ({ name, status: "operational" }))
+              : []),
           ],
           active: [
             {

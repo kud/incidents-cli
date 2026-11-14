@@ -147,3 +147,147 @@ describe("list scroll", () => {
     assert.equal(scrollTop(3, lines, lineOf(9), 20), 0)
   })
 })
+
+describe("list keys", () => {
+  const UP = "\x1b[A"
+  const LEFT = "\x1b[D"
+  const RIGHT = "\x1b[C"
+  const ENTER = "\r"
+  const BACKSPACE = "\x7f"
+
+  // The list, sorted and settled, with a way to press a key and read what
+  // the cursor sits on after it.
+  const ready = async (columns = 160) => {
+    const opened = open(mockSource(2), columns)
+    await until(opened.frame, /updated/)
+    await tick()
+    const press = async (key: string, times = 1) => {
+      for (let i = 0; i < times; i++) {
+        opened.stdin.press(key)
+        await tick(30)
+      }
+      await tick()
+      return opened.frame()
+    }
+    // The name under the cursor, read off the list alone.
+    const on = () =>
+      /❯ (.+?) {2}/.exec(bodyOf(selectedLine(opened.frame())))?.[1] ?? ""
+    return { ...opened, press, on }
+  }
+
+  it("↓ moves one service at a time, across the blank between runs", async () => {
+    const { app, press, on } = await ready()
+    assert.match(on(), /Acme Cloud/)
+    assert.match(await press(DOWN), /2 of 21/)
+    assert.match(on(), /Placeholder Mail/)
+    assert.match(await press(DOWN), /3 of 21/)
+    assert.match(on(), /Brightgate Auth/)
+    app.unmount()
+  })
+
+  it("↑ moves back up and holds at the top", async () => {
+    const { app, press, on } = await ready()
+    await press(DOWN, 2)
+    assert.match(await press(UP), /2 of 21/)
+    assert.match(on(), /Placeholder Mail/)
+    await press(UP)
+    assert.match(on(), /Acme Cloud/)
+    assert.match(await press(UP), /1 of 21/)
+    app.unmount()
+  })
+
+  it("← steps out to the filters and keeps the service selected", async () => {
+    const { app, press, frame } = await ready()
+    await press(DOWN, 2)
+    const out = await press(LEFT)
+    assert.match(out, /↑↓ filter/)
+    assert.match(out, /3 of 21/)
+    assert.doesNotMatch(out, /Services · /)
+    await press(RIGHT)
+    assert.match(selectedLine(frame()), /Brightgate Auth/)
+    app.unmount()
+  })
+
+  it("→ in the list stays put", async () => {
+    const { app, press, on } = await ready()
+    await press(DOWN, 2)
+    const after = await press(RIGHT)
+    assert.match(after, /↑↓ move/)
+    assert.match(after, /3 of 21/)
+    assert.match(on(), /Brightgate Auth/)
+    app.unmount()
+  })
+
+  it("tab goes to the filters and back without moving the cursor", async () => {
+    const { app, press, on } = await ready()
+    await press(DOWN, 3)
+    assert.match(await press(TAB), /↑↓ filter/)
+    assert.match(await press(TAB), /↑↓ move/)
+    assert.match(on(), /Copperleaf Pay/)
+    app.unmount()
+  })
+
+  it("v to the board and back keeps the service selected", async () => {
+    const { app, press, on } = await ready()
+    await press(DOWN, 4)
+    assert.match(on(), /Example CDN/)
+    assert.match(await press("v"), /v list/)
+    assert.match(await press("v"), /v board/)
+    assert.match(on(), /Example CDN/)
+    app.unmount()
+  })
+
+  it("enter opens the selected service and backspace returns to it", async () => {
+    const { app, press, frame, on } = await ready()
+    await press(DOWN, 3)
+    await press(ENTER)
+    const detail = await until(frame, /Payouts/)
+    assert.match(detail, /Incidents\s+Copperleaf Pay/)
+    await press(BACKSPACE)
+    const back = await until(frame, /Declared status only/)
+    assert.match(back, /4 of 21/)
+    assert.match(on(), /Copperleaf Pay/)
+    app.unmount()
+  })
+
+  it("walks every row down and back up, folded or not, never skipping", async () => {
+    const { app, press, on } = await ready()
+    for (const fold of [false, true]) {
+      if (fold) await press("z")
+      const total = Number(/\d+ of (\d+)/.exec(await press(UP, 0))![1])
+      await press(UP, total)
+      const down: string[] = [on()]
+      for (let i = 1; i < total; i++) {
+        assert.match(await press(DOWN), new RegExp(`${i + 1} of ${total}`))
+        down.push(on())
+      }
+      assert.equal(new Set(down).size, total)
+      // Past the end it holds, as it holds at the top.
+      assert.match(await press(DOWN), new RegExp(`${total} of ${total}`))
+      const up: string[] = [on()]
+      for (let i = total - 1; i > 0; i--) {
+        assert.match(await press(UP), new RegExp(`${i} of ${total}`))
+        up.unshift(on())
+      }
+      assert.deepEqual(up, down)
+    }
+    app.unmount()
+  })
+})
+
+describe("list preview", () => {
+  it("names the components in trouble and counts the rest on one line", async () => {
+    const { app, stdin, frame } = open(mockSource(2), 230)
+    await until(frame, /updated/)
+    for (let i = 0; i < 4; i++) {
+      stdin.press(DOWN)
+      await tick(30)
+    }
+    const shown = await until(frame, /41 components/)
+    assert.match(shown, /● degraded {2}Edge cache/)
+    assert.match(shown, /● ok {8}41 components/)
+    assert.doesNotMatch(shown, /Ashmere/)
+    assert.doesNotMatch(shown, /ok\s*…|…\s*│/)
+    app.unmount()
+  })
+})

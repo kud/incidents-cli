@@ -1,9 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { render } from "ink-testing-library"
+import { render as renderAt } from "ink"
+import { stripVTControlCharacters } from "node:util"
 import { App } from "../src/ui/app.js"
 import { mockSource } from "../src/source.js"
-import { bodyOf } from "./helpers.js"
+import { bodyOf, terminal } from "./helpers.js"
 
 const tick = (ms = 60) => new Promise((r) => setTimeout(r, ms))
 
@@ -232,4 +234,45 @@ describe("overview keys", () => {
     assert.doesNotMatch(frame, /Services · /)
     unmount()
   })
+})
+
+describe("page chrome", () => {
+  // The header, one blank row, then every pane title on one row: on the
+  // list, the board and a service's page, wide and narrow.
+  const cases: [
+    string,
+    Parameters<typeof App>[0]["source"]["view"],
+    string?,
+  ][] = [
+    ["list", "list"],
+    ["board", "board"],
+    ["detail", "list", "example-cdn"],
+  ]
+  for (const columns of [230, 100])
+    for (const [name, view, detail] of cases)
+      it(`${name} at ${columns} columns: header, blank, pane titles`, async () => {
+        const { stdout, stdin } = terminal(columns, 40)
+        const app = renderAt(
+          <App source={{ ...mockSource(2), view }} initialDetail={detail} />,
+          {
+            stdout: stdout as unknown as NodeJS.WriteStream,
+            stdin: stdin as unknown as NodeJS.ReadStream,
+            debug: true,
+            patchConsole: false,
+            exitOnCtrlC: false,
+          },
+        )
+        const frame = () => stripVTControlCharacters(stdout.frame)
+        const done = await until(frame, /updated/)
+        const lines = done.split("\n")
+        const header = lines.findIndex((l) => l.includes("◆ Incidents"))
+        assert.equal(header, 1, done)
+        assert.equal(lines[header + 1].replace(/[│\s]/g, ""), "", done)
+        const titles = lines[header + 2]
+        const expected = detail ? ["Now"] : ["Filters", "Services"]
+        if (detail && columns >= 150) expected.push("History")
+        for (const title of expected)
+          assert.match(titles, new RegExp(title), done)
+        app.unmount()
+      })
 })

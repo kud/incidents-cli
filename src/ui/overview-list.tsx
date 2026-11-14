@@ -40,14 +40,28 @@ const COMPONENTS_MAX = 28
 const COMPONENTS_MIN = 10
 const TITLE_MIN = 32
 
-const componentWord = (status: string): { text: string; tone: Tone } =>
+const componentWord = (
+  status: string,
+): { glyph: string; text: string; tone: Tone } =>
   status === "operational"
-    ? { text: "ok", tone: "success" }
+    ? { glyph: "●", text: "ok", tone: "success" }
     : status === "under_maintenance"
-      ? { text: "maintenance", tone: "info" }
+      ? { glyph: "◌", text: "maintenance", tone: "info" }
       : status === "major_outage"
-        ? { text: "outage", tone: "error" }
-        : { text: "degraded", tone: "warning" }
+        ? { glyph: "●", text: "outage", tone: "error" }
+        : { glyph: "●", text: "degraded", tone: "warning" }
+
+// Worst first, then by name, as the detail page orders them; maintenance is
+// planned work and sits after the breakage.
+const RANK: Record<string, number> = {
+  major_outage: 0,
+  partial_outage: 1,
+  degraded_performance: 2,
+  under_maintenance: 4,
+}
+// A status page can list dozens of components; the preview names the few in
+// trouble and counts the rest on one line.
+const COMPONENTS_SHOWN = 6
 
 // The first line the list shows. The window holds still while the cursor
 // moves inside it and only scrolls once the cursor comes within `SCROLL_EDGE`
@@ -83,11 +97,32 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
         minute: "2-digit",
       })
     : ""
-  const comps = [...(r?.components ?? [])].sort(
-    (a, b) =>
-      Number(a.status === "operational") - Number(b.status === "operational"),
-  )
-  const nameW = widest(comps.map((c) => c.name))
+  const comps = r?.components ?? []
+  const broken = comps
+    .filter((c) => c.status !== "operational")
+    .sort(
+      (a, b) =>
+        (RANK[a.status] ?? 3) - (RANK[b.status] ?? 3) ||
+        a.name.localeCompare(b.name),
+    )
+  const healthy = comps.length - broken.length
+  const shown = broken.slice(0, COMPONENTS_SHOWN)
+  // The status leads each row, so a long name is what gets cut, never the word.
+  const wordW = widest([
+    ...shown.map((c) => componentWord(c.status).text),
+    ...(healthy ? ["ok"] : []),
+  ])
+  const componentRow = (key: string, status: string, text: string) => {
+    const word = componentWord(status)
+    return (
+      <Text key={key} wrap="truncate-end">
+        <Text color={TONE[word.tone]}>
+          {word.glyph} {pad(word.text, wordW + GAP)}
+        </Text>
+        <Text color={INK}>{text}</Text>
+      </Text>
+    )
+  }
   const lines: ReactNode[] = [
     <Text key="t" wrap="truncate-end">
       <Text color={INK} bold>
@@ -131,15 +166,22 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
         Components
       </Text>,
     )
-    for (const c of comps) {
-      const word = componentWord(c.status)
+    for (const c of shown)
+      lines.push(componentRow(`c-${c.name}`, c.status, c.name))
+    if (broken.length > shown.length)
       lines.push(
-        <Text key={`c-${c.name}`} wrap="truncate-end">
-          <Text color={INK}>{pad(c.name, nameW + GAP)}</Text>
-          <Text color={TONE[word.tone]}>{word.text}</Text>
+        <Text key="more" color={colors.muted}>
+          {" ".repeat(2 + wordW + GAP)}+{broken.length - shown.length} more
         </Text>,
       )
-    }
+    if (healthy)
+      lines.push(
+        componentRow(
+          "ok",
+          "operational",
+          `${healthy} component${healthy === 1 ? "" : "s"}`,
+        ),
+      )
   }
   if (r) {
     lines.push(<Text key="b2"> </Text>)
