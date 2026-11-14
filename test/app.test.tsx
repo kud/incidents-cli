@@ -276,3 +276,41 @@ describe("page chrome", () => {
         app.unmount()
       })
 })
+
+describe("footer keys", () => {
+  // The keys and the counter share one row: at a narrow width the least used
+  // keys drop, and `q quit` never wraps onto a line of its own.
+  for (const columns of [230, 100])
+    for (const view of ["board", "list"] as const)
+      for (const pane of ["services", "filters"])
+        it(`${view}, ${pane} pane, at ${columns} columns: one row`, async () => {
+          const { stdout, stdin } = terminal(columns, 40)
+          const app = renderAt(<App source={{ ...mockSource(2), view }} />, {
+            stdout: stdout as unknown as NodeJS.WriteStream,
+            stdin: stdin as unknown as NodeJS.ReadStream,
+            debug: true,
+            patchConsole: false,
+            exitOnCtrlC: false,
+          })
+          const frame = () => stripVTControlCharacters(stdout.frame)
+          await until(frame, /updated/)
+          if (pane === "filters") stdin.press("\t")
+          const done = await until(
+            frame,
+            pane === "filters" ? /⏎ go/ : /⏎ open/,
+          )
+          const lines = done.split("\n")
+          const quit = lines.findIndex((l) => l.includes("q quit"))
+          assert.ok(quit > 0, done)
+          assert.match(
+            lines[quit],
+            pane === "filters" ? /↑↓ filter/ : /move/,
+            done,
+          )
+          assert.match(lines[quit], /\d+ of \d+/, done)
+          assert.equal(lines[quit + 1].replace(/[│╰╯─\s]/g, ""), "", done)
+          if (columns >= 230 && pane === "services")
+            assert.match(lines[quit], /s by name/, done)
+          app.unmount()
+        })
+})

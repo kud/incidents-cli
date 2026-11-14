@@ -341,22 +341,30 @@ export const BoardOverview = ({
     first: cards.length + n * grid.lines[0].length,
     size: line.length,
   }))
-  // One line is always kept for the scroll note or the break before the grid.
-  const budget = Math.max(0, height - (hidden.length ? 2 : 0) - 1)
   const onGrid = cursor >= cards.length
-  const gridRoom = Math.min(
-    gridBands.length,
-    Math.max(
-      onGrid ? 1 : 0,
-      budget - (cardBands.length && !onGrid ? TILE_LINES : 0),
-    ),
-  )
-  const cardSpan = windowOf(cardBands, cursor, budget - gridRoom)
-  const gridSpan = windowOf(gridBands, cursor, gridRoom)
-  const shownCards = cardBands.slice(cardSpan.start, cardSpan.end)
-  const shownGrid = gridBands.slice(gridSpan.start, gridSpan.end)
-  const scrolled =
-    shownCards.length < cardBands.length || shownGrid.length < gridBands.length
+  // `reserve` lines are kept for the break before the grid, or for the scroll
+  // note, which takes a blank of its own under the cards.
+  const fit = (reserve: number) => {
+    const budget = Math.max(0, height - (hidden.length ? 2 : 0) - reserve)
+    const gridRoom = Math.min(
+      gridBands.length,
+      Math.max(
+        onGrid ? 1 : 0,
+        budget - (cardBands.length && !onGrid ? TILE_LINES : 0),
+      ),
+    )
+    const cardSpan = windowOf(cardBands, cursor, budget - gridRoom)
+    const gridSpan = windowOf(gridBands, cursor, gridRoom)
+    const shownCards = cardBands.slice(cardSpan.start, cardSpan.end)
+    const shownGrid = gridBands.slice(gridSpan.start, gridSpan.end)
+    const scrolled =
+      shownCards.length < cardBands.length ||
+      shownGrid.length < gridBands.length
+    return { cardSpan, gridSpan, shownCards, shownGrid, scrolled }
+  }
+  const loose = fit(1)
+  const { cardSpan, gridSpan, shownCards, shownGrid, scrolled } =
+    loose.scrolled && loose.shownCards.length ? fit(2) : loose
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box ref={ref} flexDirection="column" flexGrow={1} overflow="hidden">
@@ -375,7 +383,11 @@ export const BoardOverview = ({
           </Box>
         ))}
         {scrolled ? (
-          <Box paddingLeft={MARK} flexShrink={0}>
+          <Box
+            paddingLeft={MARK}
+            flexShrink={0}
+            marginTop={shownCards.length ? 1 : 0}
+          >
             <Text color={colors.muted}>
               {offscreen(cardBands, cardSpan, gridBands, gridSpan)}
               {" · ↑↓ scroll"}

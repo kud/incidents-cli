@@ -278,3 +278,32 @@ describe("grid while loading", () => {
     }
   })
 })
+
+describe("scroll note", () => {
+  // The note under the cards takes a blank row above it, the same break the
+  // board leaves between the cards and the grid.
+  for (const [columns, rows] of [
+    [100, 30],
+    [230, 24],
+  ])
+    it(`sits one blank row under the cards at ${columns} columns`, async () => {
+      const { stdout, stdin } = terminal(columns, rows)
+      const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        patchConsole: false,
+        exitOnCtrlC: false,
+      })
+      const frame = () => stripVTControlCharacters(stdout.frame)
+      await until(frame, /updated/)
+      const done = await until(frame, /more below/)
+      const lines = done.split("\n")
+      const note = lines.findIndex((l) => /more below/.test(l))
+      assert.ok(note > 1, done)
+      assert.equal(bodyOf(lines[note - 1]).replace(/[│\s]/g, ""), "", done)
+      assert.match(bodyOf(lines[note - 2]), /[┛╯]/, done)
+      accountsForAll(done)
+      app.unmount()
+    })
+})

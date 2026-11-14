@@ -15,6 +15,7 @@ import { isClear, worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
 import { DetailBody } from "./detail.js"
+import { fitHints } from "./fit-hints.js"
 import {
   BoardOverview,
   boardShape,
@@ -401,6 +402,11 @@ export const App = ({
         ["s", sort === "status" ? "by name" : "by status"],
         ["r", "refresh"],
       ]
+  // The keys share their row with the counter; at a narrow width the least
+  // used ones drop rather than wrap: sort, fold, refresh, view, search.
+  const counter = visible.length ? `${cursor + 1} of ${visible.length}` : ""
+  const hintRoom =
+    columns - FRAME_SIDES - 3 - (counter ? 2 + counter.length : 0)
   return (
     <Page
       fill
@@ -464,16 +470,18 @@ export const App = ({
       <Box paddingLeft={2} paddingRight={1} flexShrink={0}>
         <Box flexGrow={1}>
           <FooterHints
-            hints={typing ? filterMode.hints : hints}
+            hints={fitHints(
+              typing ? filterMode.hints : hints,
+              hintRoom,
+              onFilters ? ["r", "v", "/"] : ["s", "z", "r", "v", "/"],
+            )}
             page="root"
             help={false}
           />
         </Box>
         {visible.length ? (
           <Box flexShrink={0} marginLeft={2}>
-            <Text dimColor>
-              {cursor + 1} of {visible.length}
-            </Text>
+            <Text dimColor>{counter}</Text>
           </Box>
         ) : null}
       </Box>
