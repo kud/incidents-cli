@@ -278,6 +278,12 @@ export const App = ({
     if (input === "r") return detailId ? loadDetail(detailId) : load()
     if (!atRoot) return
     if (key.tab) return setFocus((f) => (f === "filters" ? "body" : "filters"))
+    // The view keys act on the whole overview, so they answer whichever pane
+    // holds focus.
+    if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
+    if (input === "s")
+      return setSort((s) => (s === "status" ? "name" : "status"))
+    if (input === "z") return setFolded((f) => !f)
     const cycle = (step: number) => {
       const i = FILTERS.findIndex((f) => f.id === tab)
       setActive(FILTERS[(i + step + FILTERS.length) % FILTERS.length].id)
@@ -304,13 +310,11 @@ export const App = ({
         const next = boardStep(boardShape(visible, bodyW, sorted), cursor, dir)
         return next === "filters" ? setFocus("filters") : setCursor(next)
       }
-    } else if (key.leftArrow || key.rightArrow) {
-      return cycle(key.rightArrow ? 1 : -1)
+    } else if (key.leftArrow) {
+      // The list is one column, so every row sits on the board's left edge:
+      // ← steps out to the filters there too, and → has nowhere to go.
+      return setFocus("filters")
     }
-    if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
-    if (input === "s")
-      return setSort((s) => (s === "status" ? "name" : "status"))
-    if (input === "z") return setFolded((f) => !f)
     if (key.return && visible[cursor]) openDetail(visible[cursor].service.id)
   })
 
@@ -382,15 +386,13 @@ export const App = ({
         ["⏎", "go"],
         ["tab", "services"],
         ["/", "search"],
+        ["v", view === "list" ? "board" : "list"],
         ["r", "refresh"],
       ]
     : [
         ...(view === "board"
           ? ([["←→↑↓", "move"]] as [string, string][])
-          : ([
-              ["↑↓", "move"],
-              ["←→", "filter"],
-            ] as [string, string][])),
+          : ([["↑↓", "move"]] as [string, string][])),
         ["⏎", "open"],
         ["tab", "filters"],
         ["/", "search"],
@@ -427,7 +429,7 @@ export const App = ({
       <Box flexDirection="row" flexGrow={1}>
         <Box flexDirection="column" width={filterW} flexShrink={0}>
           <PaneTitle label="Filters" focused={onFilters} width={filterW} />
-          <Text> </Text>
+          <Box height={1} flexShrink={0} />
           <FilterList
             items={items}
             active={tab}
@@ -442,7 +444,7 @@ export const App = ({
         <Box width={AFTER_RULE} flexShrink={0} />
         <Box flexDirection="column" width={bodyW} flexShrink={0}>
           <PaneTitle label={bodyTitle} focused={!onFilters} width={bodyW} />
-          <Text> </Text>
+          <Box height={1} flexShrink={0} />
           <Overview
             rows={visible}
             all={rows}

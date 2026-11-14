@@ -32,7 +32,7 @@ describe("interactive view", () => {
     assert.ok(
       frame.indexOf("Placeholder Mail") < frame.indexOf("Brightgate Auth"),
     )
-    assert.match(frame, /Acme Cloud\s+● {2}Elevated API error rates/)
+    assert.match(frame, /Acme Cloud\s+● major\s+Elevated API error rates/)
     unmount()
   })
 
@@ -194,6 +194,42 @@ describe("interactive view", () => {
     assert.ok(
       frame.indexOf("Brightgate Auth") < frame.indexOf("Copperleaf Pay"),
     )
+    unmount()
+  })
+})
+
+describe("overview keys", () => {
+  const LEFT = "\u001B[D"
+  const RIGHT = "\u001B[C"
+
+  it("v switches the view from the filter column too", async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(5), view: "list" }} />,
+    )
+    await tick(300)
+    stdin.write("\t")
+    await tick()
+    assert.match(lastFrame() ?? "", /↑↓ filter/)
+    stdin.write("v")
+    await tick()
+    assert.match(lastFrame() ?? "", /v list/)
+    unmount()
+  })
+
+  it("← in the list steps out to the filters and never changes the filter", async () => {
+    const { lastFrame, stdin, unmount } = render(
+      <App source={{ ...mockSource(5), view: "list" }} />,
+    )
+    await tick(300)
+    stdin.write(RIGHT)
+    await tick()
+    assert.match(lastFrame() ?? "", /↑↓ move/)
+    assert.doesNotMatch(lastFrame() ?? "", /Services · /)
+    stdin.write(LEFT)
+    await tick()
+    const frame = lastFrame() ?? ""
+    assert.match(frame, /↑↓ filter/)
+    assert.doesNotMatch(frame, /Services · /)
     unmount()
   })
 })

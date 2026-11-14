@@ -3,6 +3,7 @@ import { describe, it } from "node:test"
 import { stripVTControlCharacters } from "node:util"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
+import { scrollTop } from "../src/ui/overview-list.js"
 import { mockSource, type Source } from "../src/source.js"
 import { bodyOf, terminal } from "./helpers.js"
 
@@ -116,5 +117,33 @@ describe("list alignment", () => {
     // one cell in.
     assert.equal(at("Services"), name - 1, done)
     app.unmount()
+  })
+})
+
+describe("list scroll", () => {
+  // Ten rows with a run break before the sixth.
+  const lines = [0, 1, 2, 3, 4, undefined, 5, 6, 7, 8, 9].map((holds) => ({
+    holds,
+  }))
+  const lineOf = (row: number) => lines.findIndex((l) => l.holds === row)
+
+  it("holds the window still while the cursor moves inside it", () => {
+    assert.equal(scrollTop(0, lines, lineOf(0), 6), 0)
+    assert.equal(scrollTop(0, lines, lineOf(2), 6), 0)
+    assert.equal(scrollTop(0, lines, lineOf(3), 6), 0)
+  })
+
+  it("scrolls one line at a time near the bottom edge", () => {
+    assert.equal(scrollTop(0, lines, lineOf(4), 6), 1)
+    assert.equal(scrollTop(1, lines, lineOf(3), 6), 1)
+  })
+
+  it("never opens the window on a run's blank line", () => {
+    const start = scrollTop(0, lines, lineOf(8), 6)
+    assert.notEqual(lines[start].holds, undefined)
+  })
+
+  it("shows everything from the top when it fits", () => {
+    assert.equal(scrollTop(3, lines, lineOf(9), 20), 0)
   })
 })

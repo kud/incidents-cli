@@ -273,7 +273,7 @@ const nowLines = (
     body: { text: i.title, bold: true, color: INK },
     tail: {
       text: ageOf(i.date) ? `for ${ageOf(i.date)}` : "",
-      color: INK,
+      color: colors.muted,
     },
   }))
   const sections: StyledLine[][] = []
@@ -360,7 +360,7 @@ const historyRows = (
           {
             lead: { text: "" },
             body: { text: i.title, color: INK },
-            tail: { text: recentAgo(i.date), color: colors.accent },
+            tail: { text: recentAgo(i.date), color: colors.muted },
           },
         ],
         width,

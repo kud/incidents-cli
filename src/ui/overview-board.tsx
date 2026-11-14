@@ -27,7 +27,9 @@ import {
 } from "./overview-parts.js"
 
 const TILE = 46
-// A card's height: its border, then name, status, title and components.
+// A card's height: its border, then the name with its status, a blank that
+// sets the name apart from what it says, the title, and the components with
+// the age.
 const TILE_LINES = 6
 
 const Tile = ({
@@ -53,19 +55,30 @@ const Tile = ({
       borderColor={active ? (focused ? colors.accent : SOFT) : colors.track}
       paddingX={1}
     >
-      <Text color={INK} bold={active} wrap="truncate-end">
-        {row.service.name}
-      </Text>
-      <Box justifyContent="space-between" width={inner}>
-        <Text color={TONE[label.tone]}>{label.text}</Text>
-        <Text color={INK}>{ageText(row.record)}</Text>
+      <Box width={inner} gap={GAP}>
+        <Box flexGrow={1} flexShrink={1}>
+          <Text color={INK} bold wrap="truncate-end">
+            {row.service.name}
+          </Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Text color={TONE[label.tone]}>{label.text}</Text>
+        </Box>
       </Box>
+      <Text> </Text>
       <Text color={INK} wrap="truncate-end">
         {headline(row.record)}
       </Text>
-      <Text color={INK} wrap="truncate-end">
-        {affected(row.record).join(", ") || " "}
-      </Text>
+      <Box width={inner} gap={GAP}>
+        <Box flexGrow={1} flexShrink={1}>
+          <Text color={INK} wrap="truncate-end">
+            {affected(row.record).join(", ") || " "}
+          </Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Text color={colors.muted}>{ageText(row.record)}</Text>
+        </Box>
+      </Box>
     </Box>
   )
 }

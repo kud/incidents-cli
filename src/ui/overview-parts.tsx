@@ -11,7 +11,6 @@ import type { Tone } from "../labels.js"
 import type { Sort } from "../sort.js"
 import { visibleLength } from "../render.js"
 import {
-  glyphOf,
   hiddenLine,
   labelOf,
   type HiddenPart,
@@ -76,14 +75,14 @@ export const Marker = ({
   </Text>
 )
 
-// The status cell: glyph and word in the tone's colour, or the spinner while
-// the service has not answered.
+// The status cell: glyph and word in the tone's colour, so the status never
+// rests on colour alone, or the spinner while the service has not answered.
 export const StatusCell = ({ row, width }: { row: Row; width: number }) => {
   const label = labelOf(row)
   return (
     <Box width={width} flexShrink={0}>
       {row.record ? (
-        <Text color={TONE[label.tone]}>{glyphOf(label)}</Text>
+        <Text color={TONE[label.tone]}>{label.text}</Text>
       ) : (
         <Spinner />
       )}
