@@ -53,6 +53,9 @@ const Tile = ({
       flexDirection="column"
       borderStyle={active ? "bold" : "round"}
       borderColor={active ? (focused ? colors.accent : SOFT) : colors.track}
+      // The left edge carries the status tone, selected or not: the status
+      // belongs to the card, the rest of the border to the cursor.
+      borderLeftColor={TONE[label.tone]}
       paddingX={1}
     >
       <Box width={inner} gap={GAP}>
