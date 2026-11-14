@@ -4,6 +4,34 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.5.0 — 2026-11-14
+
+### Highlights
+
+- The `v`, `s` and `z` keys now work from any pane, including the filters, and in the list `←` steps back to the filters instead of cycling them. ([9ef152f](https://github.com/kud/incidents-cli/commit/9ef152f119c50c02f9339b990b48d7188d4af185))
+- The list's status preview on a busy page names only the components in trouble, worst first, and counts the rest on one "ok N components" line. ([a6a923e](https://github.com/kud/incidents-cli/commit/a6a923e70d9847cf77152ca03f7bc0e4fb3dbc42))
+- Each preview row now leads with its status word, so a long component name is cut rather than the status. ([a6a923e](https://github.com/kud/incidents-cli/commit/a6a923e70d9847cf77152ca03f7bc0e4fb3dbc42))
+- Each board card's left edge takes its status colour, so the state reads at a glance even when the card isn't selected. ([8391e49](https://github.com/kud/incidents-cli/commit/8391e49aba6066d6c5074aac37e2e309f6898449))
+- Footer hints now fit the terminal width, dropping the least-used first while "q quit" always stays. ([1cdaf53](https://github.com/kud/incidents-cli/commit/1cdaf53d238ad886bbab0bd19a19f76ca0ea0394))
+
+### Fixes
+
+- The list holds still while the cursor moves inside it, scrolls only near an edge, and no longer opens on a blank line. ([9ef152f](https://github.com/kud/incidents-cli/commit/9ef152f119c50c02f9339b990b48d7188d4af185))
+- The board's "N more below" note now has a blank row above it instead of sitting against the cards. ([1cdaf53](https://github.com/kud/incidents-cli/commit/1cdaf53d238ad886bbab0bd19a19f76ca0ea0394))
+
+### Documentation
+
+- The README screenshots are regenerated to show the current board, detail and list views. ([4f1ecd8](https://github.com/kud/incidents-cli/commit/4f1ecd8d475b3308acafbf9c43b98f2010069d37))
+
+<details>
+<summary>Internal (2 commits)</summary>
+
+- Screenshot capture moved from a zsh script to a `shots.yml` config, with adjusted timing delays. Extra tests cover list navigation and the header layout.
+
+</details>
+
+---
+
 ## 0.4.0 — 2026-11-13
 
 ### Highlights
