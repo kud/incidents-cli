@@ -6,7 +6,15 @@ import {
   worstFirst,
   type ServiceRecord,
 } from "./core/index.js"
-import { declaredText, statusLabel, wordLabel, type Tone } from "./labels.js"
+import {
+  DISCLAIMER,
+  statusLabel,
+  withGlyph,
+  wordLabel,
+  type Label,
+  type Tone,
+} from "./labels.js"
+import { ageText, headline } from "./summary.js"
 
 export interface RenderOptions {
   color: boolean
@@ -54,44 +62,53 @@ const styler = ({ color, links }: Pick<RenderOptions, "color" | "links">) => {
   }
 }
 
-const table = (rows: string[][], muted: (s: string) => string): string[] => {
+// Columns padded to their widest cell, two spaces apart, every line two in.
+// With `header`, the first row is the column names, muted. A column in
+// `right` is aligned to its right edge.
+const table = (
+  rows: string[][],
+  muted: (s: string) => string,
+  { header = true, right = [] as number[] } = {},
+): string[] => {
   const widths = rows[0].map((_, i) =>
     Math.max(...rows.map((r) => visibleLength(r[i] ?? ""))),
   )
   return rows.map((row, index) => {
-    const line = row.map((cell, i) => pad(cell, widths[i])).join("  ")
-    return `  ${index === 0 ? muted(line.trimEnd()) : line.trimEnd()}`
+    const line = row
+      .map((cell, i) =>
+        right.includes(i)
+          ? " ".repeat(Math.max(0, widths[i] - visibleLength(cell))) + cell
+          : pad(cell, widths[i]),
+      )
+      .join("  ")
+    return `  ${header && index === 0 ? muted(line.trimEnd()) : line.trimEnd()}`
   })
 }
 
+// One line per service, as the TUI's list draws it: the name, the status,
+// how long, then the headline. Worst first.
 export const renderOverview = (
   records: ServiceRecord[],
   options: RenderOptions,
 ): string => {
   const s = styler(options)
-  const rows = [["Status", "Service", "Declared"]].concat(
-    worstFirst(records).map((r) => {
-      const status = s.tone(
-        statusLabel(r.indicator).text,
-        statusLabel(r.indicator).tone,
-      )
-      const name = s.link(r.name, r.url)
-      const declared = declaredText(r)
-      const loud = r.indicator !== "none" && r.indicator !== "link"
-      return [
-        status,
-        loud ? s.bold(name) : name,
-        loud ? s.bold(declared) : s.muted(declared),
-      ]
-    }),
-  )
+  const rows = worstFirst(records).map((r) => {
+    const label = statusLabel(r.indicator)
+    const loud = r.indicator !== "none" && r.indicator !== "link"
+    const line = headline(r)
+    return [
+      s.bold(s.link(r.name, r.url)),
+      s.tone(label.text, label.tone),
+      s.muted(ageText(r)),
+      loud ? line : s.muted(line),
+    ]
+  })
   return [
     "",
-    ...table(rows, s.muted),
+    ...(rows.length ? table(rows, s.muted, { header: false, right: [2] }) : []),
     "",
-    s.muted(
-      "  Declared status only: green is not proof your calls work. incidents list <service> for detail.",
-    ),
+    s.muted(`  ${DISCLAIMER}`),
+    `  ${s.bold("incidents list <service>")}${s.muted(" for detail.")}`,
     ...(options.note ? [s.muted(`  ${options.note}`)] : []),
     "",
   ].join("\n")
@@ -99,6 +116,8 @@ export const renderOverview = (
 
 const OPERATIONAL = "operational"
 
+// One service in full: its name, what it declares and where, then its open
+// incidents and its components as two tables, then what came before.
 export const renderDetail = (
   record: ServiceRecord,
   options: RenderOptions,
@@ -108,21 +127,16 @@ export const renderDetail = (
   const status = statusLabel(record.indicator)
   const broken = record.components.filter((c) => c.status !== OPERATIONAL)
   const healthy = record.components.length - broken.length
-  const happening = [
-    ...broken.map((c) => {
-      const w = wordLabel(c.status)
-      return [s.tone(w.text, w.tone), c.name, "now"]
-    }),
-    ...record.active.map((i) => {
-      const w = wordLabel(i.impact)
-      const since = ageOf(i.date, now)
-      return [
-        s.tone(w.text, w.tone),
-        s.link(i.title, i.link),
-        since ? `since ${since}` : "",
-      ]
-    }),
-  ]
+  const word = (raw: string | undefined, fallback: (r: string) => Label) => {
+    const w = withGlyph(fallback(raw ?? ""))
+    return s.tone(w.text, w.tone)
+  }
+  const incidents = record.active.map((i) => [
+    word(i.impact, wordLabel),
+    s.link(i.title, i.link),
+    s.muted(ageOf(i.date, now)),
+  ])
+  const components = broken.map((c) => [word(c.status, wordLabel), c.name])
   const current = new Set(
     record.active.flatMap((i) => [i.link, i.title]).filter(Boolean),
   )
@@ -130,16 +144,35 @@ export const renderDetail = (
   const earlier = record.recent
     .filter((i) => !current.has(i.link) && !current.has(i.title))
     .slice(0, 7)
+  const url = record.url.replace(/^https?:\/\//, "")
   return [
     "",
-    `  ${s.tone(status.text, status.tone)}  ${record.description}  ${s.muted(record.url.replace(/^https:\/\//, ""))}`,
+    `  ${s.bold(record.name)}`,
+    `  ${s.tone(status.text, status.tone)}  ${record.description}`,
+    `  ${s.muted(s.link(url, record.url))}`,
+    ...(record.indicator === "none" ? [s.muted(`  ${DISCLAIMER}`)] : []),
     "",
-    ...(happening.length
-      ? [...table([["Status", "What", "When"], ...happening], s.muted), ""]
+    ...(incidents.length
+      ? [
+          ...table(
+            [["Status", "Open incident", "For"], ...incidents],
+            s.muted,
+            {
+              right: [2],
+            },
+          ),
+          "",
+        ]
       : []),
-    ...(broken.length === 0 && healthy > 0
-      ? [s.muted(`  ${healthy} components operational`), ""]
-      : []),
+    ...(components.length
+      ? [
+          ...table([["Status", "Component"], ...components], s.muted),
+          ...(healthy > 0 ? [s.muted(`  + ${healthy} ${OPERATIONAL}`)] : []),
+          "",
+        ]
+      : healthy > 0
+        ? [s.muted(`  ${healthy} components ${OPERATIONAL}`), ""]
+        : []),
     ...(earlier.length
       ? [
           ...table(

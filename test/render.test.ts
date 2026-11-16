@@ -15,30 +15,47 @@ describe("overview", () => {
   const out = renderOverview(records, plain)
   const lines = out.split("\n")
 
-  it("writes severity as a word, worst first", () => {
+  it("reads as a TUI row: name, status, age, headline, worst first", () => {
     const order = lines
       .filter((l) => /●|◌|\?|↗/.test(l))
-      .map((l) => l.trim().split(/\s{2,}/)[1])
+      .map((l) => l.trim().split(/\s{2,}/)[0])
     assert.deepEqual(order.slice(0, 3), [
       "Acme Cloud",
       "Placeholder Mail",
       "Brightgate Auth",
     ])
-    assert.match(out, /● major\s+Acme Cloud/)
-    assert.match(out, /\? unreadable\s+Placeholder Mail/)
-    assert.match(out, /◌ maintenance/)
+    assert.match(
+      out,
+      /Acme Cloud\s+● major\s+1h 12m {2}Elevated API error rates/,
+    )
+    assert.match(out, /Placeholder Mail\s+\? unreadable\s+Could not read/)
+    assert.match(out, /Demo Maintenance\s+◌ maintenance\s+25m {2}Database/)
+    // Ages right-aligned to one edge.
+    const ends = lines.flatMap((l) => {
+      const m = /(\d+[mhd]) {2}\S/.exec(l)
+      return m ? [m.index + m[1].length] : []
+    })
+    assert.ok(ends.length >= 10)
+    assert.equal(new Set(ends).size, 1, out)
+    assert.doesNotMatch(out, /\bfor \d|Status\s+Service/)
   })
 
   it("says what a healthy, a quiet and a link row know", () => {
-    assert.match(out, /● ok\s+Sample Registry\s+operational/)
-    assert.match(out, /Demo Feed\s+quiet · last post 3h ago/)
-    assert.match(out, /↗ manual\s+Test Docs\s+no feed, open the page/)
+    assert.match(out, /Sample Registry\s+● ok\s*$/m)
+    assert.match(out, /Demo Feed\s+● ok\s+quiet · last post 3h ago/)
+    assert.match(out, /Test Docs\s+↗ manual\s+no feed, open the page/)
   })
 
-  it("carries the declared-status footer and an optional note", () => {
+  it("carries the declared-status footer and the hint on lines of their own", () => {
     assert.match(
       out,
-      /Declared status only: green is not proof your calls work\./,
+      /^ {2}Declared status only: green is not proof your calls work\.$/m,
+    )
+    assert.match(out, /^ {2}incidents list <service> for detail\.$/m)
+    assert.ok(
+      renderOverview(records, { color: true, links: false }).includes(
+        "\u001b[1mincidents list <service>\u001b[22m",
+      ),
     )
     assert.match(
       renderOverview(records, { ...plain, note: "No config at ~/x" }),
@@ -65,11 +82,15 @@ describe("overview", () => {
 describe("detail", () => {
   const out = renderDetail(byId("acme-cloud"), { ...plain, now: Date.now() })
 
-  it("lists broken components and active incidents together", () => {
-    assert.match(out, /outage\s+API\s+now/)
-    assert.match(out, /degraded\s+Dashboard\s+now/)
-    assert.match(out, /major\s+Elevated API error rates\s+since 1h 12m/)
+  it("names the service first, then incidents and components as two tables", () => {
+    assert.match(out, /^ {2}Acme Cloud$/m)
+    assert.match(out, /Status\s+Open incident\s+For/)
+    assert.match(out, /● major\s+Elevated API error rates\s+1h 12m/)
+    assert.match(out, /Status\s+Component/)
+    assert.match(out, /● outage\s+API/)
+    assert.match(out, /● degraded\s+Dashboard\n {2}\+ 2 operational/)
     assert.equal(out.includes("Webhooks"), false)
+    assert.doesNotMatch(out, /since|\bnow\b/)
   })
 
   it("keeps history apart and never repeats an active incident in it", () => {

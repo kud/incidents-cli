@@ -43,18 +43,6 @@ export const withGlyph = (label: Label): Label =>
 export const wordLabel = (status: string | undefined): Label =>
   WORDS[status ?? ""] ?? { text: "active", tone: "warning" }
 
-export const declaredText = (record: {
-  indicator: string
-  kind: string
-  description: string
-}): string => {
-  if (record.indicator === "link") return "no feed, open the page"
-  if (record.indicator !== "none") return record.description
-  if (record.kind === "rss")
-    return `quiet · ${record.description.charAt(0).toLowerCase()}${record.description.slice(1)}`
-  return "operational"
-}
-
 // What every status here is: the vendor's own word, not a measurement.
 export const DISCLAIMER =
   "Declared status only: green is not proof your calls work."

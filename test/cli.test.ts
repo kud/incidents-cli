@@ -26,13 +26,16 @@ describe("cli without a terminal", () => {
   it("a bare call prints the classic overview and exits 1 when degraded", () => {
     const r = run("--mock")
     assert.equal(r.status, 1)
-    assert.match(r.stdout, /Status\s+Service\s+Declared/)
+    assert.match(
+      r.stdout,
+      /Acme Cloud\s+● major\s+1h 12m {2}Elevated API error rates/,
+    )
   })
 
   it("list prints the same overview", () => {
     const r = run("list", "--mock")
     assert.equal(r.status, 1)
-    assert.match(r.stdout, /● major\s+Acme Cloud/)
+    assert.match(r.stdout, /Acme Cloud\s+● major/)
   })
 
   it("a service word renders its detail, never the interactive view", () => {
