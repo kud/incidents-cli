@@ -77,7 +77,7 @@ describe("detail view", () => {
   it("right-aligns every time to one edge, open and past alike", () => {
     const lines = sectionsLines(busy, 120).map(text)
     const timed = lines.filter((l) =>
-      /(for \d+[mhd]|ago|\d{1,2} \w{3,4}|\w{3,4} \d{1,2})$/.test(l),
+      /(\d+[mhd]|ago|\d{1,2} \w{3,4}|\w{3,4} \d{1,2})$/.test(l),
     )
     assert.ok(timed.length >= 26)
     const edges = new Set(timed.map((l) => l.length))
@@ -145,5 +145,34 @@ describe("declared-status caveat", () => {
 
   it("stays off a service in trouble", () => {
     assert.doesNotMatch(of("acme-cloud"), /Declared status only/)
+  })
+})
+
+describe("detail vocabulary", () => {
+  const acme = sectionsLines(
+    mockRecord(
+      MOCK_SERVICES.find((s) => s.id === "acme-cloud")!,
+      true,
+    ),
+    120,
+  ).map(text)
+
+  it("gives every status word its glyph", () => {
+    const out = acme.join("\n")
+    assert.match(out, /● major {2}Partial System Outage/)
+    assert.match(out, / {3}● major {5}Elevated API error rates/)
+    assert.match(out, / {3}● outage {4}API/)
+    assert.match(out, / {3}● degraded {2}Dashboard/)
+  })
+
+  it("counts the healthy rest under the components, indented", () => {
+    const at = acme.findIndex((l) => /Dashboard/.test(l))
+    assert.equal(acme[at + 1].trimEnd(), "   + 2 operational")
+  })
+
+  it("says a duration one way: started at, then for how long", () => {
+    const out = acme.join("\n")
+    assert.match(out, /started \d\d:\d\d · 1h 12m/)
+    assert.doesNotMatch(out, /\bfor \d|since|going/)
   })
 })

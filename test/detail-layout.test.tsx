@@ -182,18 +182,18 @@ describe("components at scale", () => {
     app.unmount()
     assert.match(
       out,
-      /33 affected · 1 outage · 8 partial · 4 degraded · 20 maintenance/,
+      /33 affected {2}● 1 outage {2}● 8 partial {2}● 4 degraded {2}◌ 20 maintenance/,
     )
     const lines = out.split("\n")
     const rows = lines.filter((l) =>
-      /^ {3}(outage|partial|degraded) /.test(l.split("│")[0]),
+      /^ {3}● (outage|partial|degraded) /.test(l.split("│")[0]),
     )
     // Eight breakage rows, the outage first, then the rest counted.
     assert.equal(rows.length, 8, out)
     assert.match(rows[0], /outage\s+Core API/)
-    assert.match(out, /\+5 more/)
+    assert.match(out, /\+ 5 more/)
     assert.match(out, /In maintenance/)
-    assert.match(out, /\+17 more/)
+    assert.match(out, /\+ 17 more/)
     // Side by side: the history pane is still there.
     assert.match(out, /History/)
     assert.match(out, /Delayed webhook delivery/)

@@ -48,10 +48,31 @@ const padStart = (text: string, width: number): string =>
   " ".repeat(Math.max(0, width - visibleLength(text))) + text
 const widest = (cells: string[]): number =>
   Math.max(0, ...cells.map(visibleLength))
+// Every status word on the page carries its glyph, as the overview's do, so
+// none of them rests on colour alone: ◌ for planned work, ● for the rest.
+const glyphed = (label: Label): Label =>
+  /^[●◌?↗] /.test(label.text)
+    ? label
+    : {
+        ...label,
+        text: `${label.text === "maintenance" ? "◌" : "●"} ${label.text}`,
+      }
 const tone = (label: Label): Cell => ({
-  text: label.text,
+  text: glyphed(label).text,
   color: TONE[label.tone],
 })
+// When an open incident started, and for how long, in the one vocabulary
+// the app uses for a duration: "started 13:24 · 1h 12m".
+const started = (raw: string): string => {
+  const age = ageOf(raw)
+  const d = new Date(raw)
+  if (!age || Number.isNaN(d.getTime())) return age
+  const clock = d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+  return `started ${clock} · ${age}`
+}
 const indent = (line: StyledLine, cells: number): StyledLine => ({
   text: "",
   spans: [
@@ -227,8 +248,9 @@ const byWorst = <T extends { name: string; status: string }>(list: T[]): T[] =>
 // A status page can list dozens of components; the pane shows the worst few.
 const SHOWN = 8
 
-// "69 affected · 21 partial · 48 maintenance", each count in its status's
-// colour, for a page with more components than the pane shows.
+// "69 affected  ● 21 partial  ◌ 48 maintenance", each count in its status's
+// colour and led by its glyph, for a page with more components than the pane
+// shows.
 const summary = (sorted: { status: string }[]): StyledLine => {
   const counts = new Map<string, number>()
   for (const c of sorted) counts.set(c.status, (counts.get(c.status) ?? 0) + 1)
@@ -238,9 +260,10 @@ const summary = (sorted: { status: string }[]): StyledLine => {
   ]
   for (const [status, n] of counts) {
     const label = wordLabel(status)
+    const [glyph, ...word] = glyphed(label).text.split(" ")
     spans.push(
-      { text: " · ", color: colors.muted },
-      { text: `${n} ${label.text}`, color: TONE[label.tone] },
+      { text: "  " },
+      { text: `${glyph} ${n} ${word.join(" ")}`, color: TONE[label.tone] },
     )
   }
   return { text: "", spans }
@@ -272,17 +295,17 @@ const nowLines = (
           heading(title, scale ? undefined : list.length),
           ...grid(list.slice(0, shown).map(row), width, leadWidth, tailWidth),
           ...(list.length > shown
-            ? [quiet(`+${list.length - shown} more`, ROW)]
+            ? [quiet(`+ ${list.length - shown} more`, ROW)]
             : []),
         ]
       : []
+  // The healthy rest, counted under the components, dimmed: they are the
+  // background the affected ones stand out from.
+  const rest = healthy > 0 ? [quiet(`+ ${healthy} operational`, ROW)] : []
   const open = record.active.map((i) => ({
     lead: tone(wordLabel(i.impact)),
     body: { text: i.title, bold: true, color: INK },
-    tail: {
-      text: ageOf(i.date) ? `for ${ageOf(i.date)}` : "",
-      color: colors.muted,
-    },
+    tail: { text: started(i.date), color: colors.muted },
   }))
   const sections: StyledLine[][] = []
   if (open.length)
@@ -292,12 +315,10 @@ const nowLines = (
     ])
   if (scale) sections.push([summary(sorted)])
   const hit = group("Affected components", breaking, SHOWN)
-  if (hit.length) sections.push(hit)
-  const rest = group("In maintenance", resting, breaking.length ? 3 : SHOWN)
-  if (rest.length) sections.push(rest)
-  if (broken.length && healthy > 0)
-    sections.push([plain(`${healthy} more operational`)])
-  else if (healthy > 0)
+  const planned = group("In maintenance", resting, breaking.length ? 3 : SHOWN)
+  if (hit.length) sections.push(planned.length ? hit : [...hit, ...rest])
+  if (planned.length) sections.push([...planned, ...rest])
+  if (!broken.length && healthy > 0)
     sections.push([plain(`${healthy} components operational`)])
   return sections.flatMap((s, i) => (i ? [BLANK, ...s] : s))
 }
@@ -305,10 +326,10 @@ const nowLines = (
 const sizes = (record: ServiceRecord) => {
   const { broken } = split(record)
   const leadWidth = widest([
-    ...broken.map((c) => wordLabel(c.status).text),
-    ...record.active.map((i) => wordLabel(i.impact).text),
+    ...broken.map((c) => glyphed(wordLabel(c.status)).text),
+    ...record.active.map((i) => glyphed(wordLabel(i.impact)).text),
   ])
-  const tailWidth = widest(record.active.map((i) => `for ${ageOf(i.date)}`))
+  const tailWidth = widest(record.active.map((i) => started(i.date)))
   return { leadWidth, tailWidth }
 }
 
@@ -572,7 +593,8 @@ export const DetailBody = ({
   // Off while something covers the page, so its keys go to that instead.
   active?: boolean
 }) => {
-  // Each pane's title and the blank under it come off the top.
+  // Each pane's title and its underline row come off the top; a page of
+  // one pane has no title, so it keeps them.
   const room = Math.max(1, height - 2)
   const left = Math.floor(width * NOW_SHARE)
   const right = width - left - BEFORE_RULE - 1 - AFTER_RULE
@@ -585,13 +607,13 @@ export const DetailBody = ({
   return (
     <Box flexDirection="column" flexGrow={1}>
       {width < SPLIT_MIN || !fits ? (
-        // One pane, titled as the split's first, scrolling with the keys.
+        // One pane, scrolling with the keys. A title names a pane against
+        // its neighbour; alone, it would only take a row.
         <Box flexDirection="column" flexGrow={1}>
-          <PaneTitle label="Now" focused width={width} indent={EDGE} />
           {record ? (
             <Scroller
               rows={sectionsRows(record, width, historyBusy)}
-              height={room}
+              height={room + 2}
               at={EDGE}
               isActive={active}
             />

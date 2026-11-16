@@ -316,8 +316,12 @@ describe("page chrome", () => {
         assert.equal(header, 1, done)
         assert.equal(lines[header + 1].replace(/[│\s]/g, ""), "", done)
         const titles = lines[header + 2]
-        const expected = detail ? ["Now"] : ["Filters", "Services"]
-        if (detail && columns >= 150) expected.push("History")
+        // A service's page titles its panes only when it has two.
+        const expected = detail
+          ? columns >= 150
+            ? ["Now", "History"]
+            : ["● minor"]
+          : ["Filters", "Services"]
         for (const title of expected)
           assert.match(titles, new RegExp(title), done)
         app.unmount()
