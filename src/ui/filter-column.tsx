@@ -94,7 +94,7 @@ export const FilterList = ({
   <Box flexDirection="column" flexShrink={0}>
     {items.map((item, i) => {
       const on = item.id === active
-      // Until every service has answered, only "All" knows its count; the
+      // Until every service has answered, only "all" knows its count; the
       // rest hold a quiet dot in the count's own cell, so nothing shifts.
       const known = settled || item.id === "all"
       const empty = known && item.count === 0

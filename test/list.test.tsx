@@ -70,8 +70,8 @@ describe("list overview", () => {
       await tick(20)
       stdin.press(ch)
     }
-    const empty = await until(frame, /Nothing in All right now/)
-    const line = empty.split("\n").find((l) => l.includes("Nothing in All"))!
+    const empty = await until(frame, /Nothing in all right now/)
+    const line = empty.split("\n").find((l) => l.includes("Nothing in all"))!
     assert.equal(dividerAt(line), width, empty)
     app.unmount()
   })

@@ -31,8 +31,8 @@ export const FILTERS: {
   name: string
   holds: readonly Indicator[] | null
 }[] = [
-  { id: "all", name: "All", holds: null },
-  { id: "trouble", name: "Trouble", holds: TROUBLE },
+  { id: "all", name: "all", holds: null },
+  { id: "trouble", name: "trouble", holds: TROUBLE },
   { id: "major", name: "major", holds: ["critical", "major"] },
   { id: "minor", name: "minor", holds: ["minor"] },
   { id: "unknown", name: "unreadable", holds: ["unknown"] },
@@ -212,7 +212,7 @@ export const BAR_MAX = 7
 export const filterWidth = (columns: number): number =>
   columns >= FILTER_WIDE ? FILTER_FULL : FILTER_SLIM
 
-// A filter's bar, in cells, against every service. "All" and an empty filter
+// A filter's bar, in cells, against every service. "all" and an empty filter
 // draw none; anything else at least one, so a single outage still shows.
 export const barCells = (count: number, total: number, id: FilterId): number =>
   id === "all" || count <= 0 || total <= 0

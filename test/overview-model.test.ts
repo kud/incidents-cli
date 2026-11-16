@@ -50,7 +50,7 @@ describe("overview filters", () => {
     assert.deepEqual(n.hidden, { search: 0, tab: 11, folded: 0 })
     assert.equal(
       hiddenLine(hiddenParts(n.hidden, { filter: "trouble", term: null })),
-      "11 outside Trouble · tab filters",
+      "11 outside trouble · tab filters",
     )
     const folded = narrow(rows, { filter: "all", folded: true, term: null })
     assert.equal(folded.rows.length, 12)
