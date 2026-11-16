@@ -34,7 +34,11 @@ describe("interactive view", () => {
     assert.ok(
       frame.indexOf("Placeholder Mail") < frame.indexOf("Brightgate Auth"),
     )
-    assert.match(frame, /Acme Cloud\s+● major\s+Elevated API error rates/)
+    // Name, status, age, then the headline.
+    assert.match(
+      frame,
+      /Acme Cloud\s+● major\s+1h 12m {2}Elevated API error rates/,
+    )
     unmount()
   })
 

@@ -163,10 +163,11 @@ const startOf = (r: ServiceRecord): string | undefined =>
 export const startedAt = (r?: ServiceRecord): string | undefined =>
   r ? startOf(r) : undefined
 
+// How long the trouble has run, bare: "1h 12m". Every row and card says a
+// duration the same way; only the detail's "started" line adds the clock.
 export const ageText = (r?: ServiceRecord): string => {
   const start = startedAt(r)
-  const age = start ? ageOf(start) : ""
-  return age ? `for ${age}` : ""
+  return start ? ageOf(start) : ""
 }
 
 export const headline = (r?: ServiceRecord): string => {

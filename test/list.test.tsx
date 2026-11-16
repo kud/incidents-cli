@@ -294,6 +294,28 @@ describe("list keys", () => {
 })
 
 describe("list preview", () => {
+  // left = max(floor(inner * 0.5), inner - 90 - divider), the body's inner
+  // width being the terminal less the frame, the filter column and its rule.
+  for (const columns of [160, 230])
+    it(`splits at the preview's widest at ${columns} columns`, async () => {
+      const { app, frame } = open(mockSource(2), columns)
+      const done = await until(frame, /updated/)
+      const inner = columns - 4 - 20 - 1 - 1 - 2
+      const left = Math.max(Math.floor(inner * 0.5), inner - 90 - 4)
+      const bodyStart = 1 + 20 + 1 + 1 + 2
+      assert.equal(dividerAt(selectedLine(done)), bodyStart + left, done)
+      app.unmount()
+    })
+
+  it("ends on the way in, and dates the trouble once", async () => {
+    const { app, frame } = open(mockSource(2), 230)
+    const done = await until(frame, /updated/)
+    assert.match(done, /started \d\d:\d\d · 1h 12m/)
+    assert.match(done, /→ history and every incident/)
+    assert.doesNotMatch(done, /going|\bfor \d/)
+    app.unmount()
+  })
+
   it("names the components in trouble and counts the rest on one line", async () => {
     const { app, stdin, frame } = open(mockSource(2), 230)
     await until(frame, /updated/)

@@ -4,7 +4,6 @@ import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
 import type { Tone } from "../labels.js"
 import {
-  affected,
   ageText,
   headline,
   labelOf,
@@ -34,11 +33,10 @@ import {
 // From this many columns of pane the selected service is read in full beside
 // the list, which keeps everything but the preview's room.
 export const PREVIEW_MIN = 110
-const PREVIEW_ROOM = 52
+// The preview's widest: past it the list takes the room, rather than the
+// preview's lines running out to the frame.
+const PREVIEW_ROOM = 90
 const DIVIDER = 4
-const COMPONENTS_MAX = 28
-const COMPONENTS_MIN = 10
-const TITLE_MIN = 32
 
 const componentWord = (
   status: string,
@@ -142,7 +140,7 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
     if (age)
       lines.push(
         <Text key="a" color={colors.muted}>
-          started {clock} · going {age}
+          started {clock} · {age}
         </Text>,
       )
     if (r.active.length > 1)
@@ -192,7 +190,7 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
     )
     lines.push(
       <Text key="o" color={colors.muted}>
-        ⏎ history and every incident
+        → history and every incident
       </Text>,
     )
   }
@@ -231,7 +229,6 @@ export const ListOverview = ({
   // The status reads as glyph and word, so it never rests on colour alone.
   const statusW = widest(all.map((r) => labelOf(r).text))
   const ageW = widest(all.map((r) => ageText(r.record)))
-  const base = MARK + nameW + GAP + statusW + GAP + (ageW ? GAP + ageW : 0)
   // The split comes from the terminal alone: fitted to the titles, it moved
   // as each service answered and again on every tab.
   const left = preview
@@ -239,17 +236,9 @@ export const ListOverview = ({
     : inner
   // Rows stop a gap short of the divider, as the preview starts a gap after it.
   const rowW = preview ? left - GAP : left
-  // The title is the answer, so the components column gives way to it: it
-  // takes only what is left past TITLE_MIN, and none at all below COMPONENTS_MIN.
-  const spare = rowW - base - TITLE_MIN - GAP
-  const compsW = preview
-    ? 0
-    : Math.min(
-        COMPONENTS_MAX,
-        spare,
-        widest(all.map((r) => affected(r.record).join(", "))),
-      )
-  const fixed = base + (compsW >= COMPONENTS_MIN ? GAP + compsW : 0)
+  // Name, status and age hold their columns; the headline takes the rest
+  // and is cut at the row's edge.
+  const fixed = MARK + nameW + GAP + statusW + GAP + (ageW ? ageW + GAP : 0)
   const titleW = Math.max(0, rowW - fixed)
   const breaks = runBreaks(rows, sorted, sort)
 
@@ -273,19 +262,17 @@ export const ListOverview = ({
           <StatusCell row={row} width={statusW + GAP} />
           {r ? (
             <>
-              <Text color={INK}>{pad(headline(r), titleW)}</Text>
-              {compsW >= COMPONENTS_MIN ? (
-                <Text color={INK}>
-                  {"  "}
-                  {pad(affected(r).join(", "), compsW)}
-                </Text>
-              ) : null}
               {ageW ? (
                 <Text color={colors.muted}>
-                  {"  "}
                   {ageText(r).padStart(ageW)}
+                  {"  "}
                 </Text>
               ) : null}
+              <Box width={titleW} flexShrink={0}>
+                <Text color={INK} wrap="truncate-end">
+                  {headline(r) || " "}
+                </Text>
+              </Box>
             </>
           ) : (
             <Pending row={i} width={pendingWidth(titleW, i)} />
