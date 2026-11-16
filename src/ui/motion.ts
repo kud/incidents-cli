@@ -4,7 +4,7 @@ import type { Row } from "./overview-model.js"
 import { moving } from "./overview-parts.js"
 
 // Motion here is a transition between two states, never a show: a frame
-// every FRAME_MS, none longer than about 200ms in all, and a key press ends
+// every FRAME_MS, none longer than about 300ms in all, and a key press ends
 // it at once on the final state.
 export const FRAME_MS = 50
 
@@ -39,9 +39,13 @@ const ids = (rows: Row[]) => new Set(rows.map((r) => r.service.id))
 const heights = (rows: Row[], h: number) =>
   Object.fromEntries(rows.map((r) => [r.service.id, h]))
 
-// A filter change on the board: the cards leaving close (3 rows, then their
-// line), then the cards arriving open from 3 rows. Lines need no motion.
-// Empty when no card leaves or arrives.
+const flags = (rows: Row[]) =>
+  Object.fromEntries(rows.map((r) => [r.service.id, true]))
+
+// A filter change on the board. What leaves dims, its cards closing to their
+// line; then what arrives comes in dim, its cards opening from a line, and
+// brightens on the final state. Lines fade too, so nothing jumps. Six frames,
+// 300ms. Empty when nothing leaves or arrives.
 export const filterFrames = (
   before: Row[],
   after: Row[],
@@ -49,17 +53,24 @@ export const filterFrames = (
 ): Frame[] => {
   const was = ids(before)
   const now = ids(after)
-  const leaving = before.filter((r) => isCard(r) && !now.has(r.service.id))
-  const arriving = after.filter((r) => isCard(r) && !was.has(r.service.id))
+  const leaving = before.filter((r) => !now.has(r.service.id))
+  const arriving = after.filter((r) => !was.has(r.service.id))
+  const out = flags(leaving)
+  const into = flags(arriving)
+  const closing = leaving.filter(isCard)
+  const opening = arriving.filter(isCard)
   return [
     ...(leaving.length
-      ? [
-          { rows: before, motion: { heights: heights(leaving, 3) } },
-          { rows: before, motion: { heights: heights(leaving, 1) } },
-        ]
+      ? [5, 3, 1].map((h) => ({
+          rows: before,
+          motion: { heights: heights(closing, h), faded: out },
+        }))
       : []),
     ...(arriving.length
-      ? [{ rows: after, motion: { heights: heights(arriving, 3) } }]
+      ? [1, 3, TILE_LINES].map((h) => ({
+          rows: after,
+          motion: { heights: heights(opening, h), faded: into },
+        }))
       : []),
   ]
 }

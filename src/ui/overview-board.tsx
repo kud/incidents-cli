@@ -61,11 +61,14 @@ const Tile = ({
   width,
   focused,
   height = TILE_LINES,
+  faded = false,
 }: {
   row: Row
   active: boolean
   width: number
   focused: boolean
+  // Part-way through a filter change: drawn dim, arriving or leaving.
+  faded?: boolean
   // Part-way through a transition: fewer rows. At one row the card is its
   // own line, as the ok strip draws it.
   height?: number
@@ -75,11 +78,13 @@ const Tile = ({
   if (height <= 1)
     return (
       <Box width={width} height={1} flexShrink={0} paddingLeft={MARK}>
-        <Text color={INK} bold wrap="truncate-end">
+        <Text color={INK} bold dimColor={faded} wrap="truncate-end">
           {row.service.name}
         </Text>
         <Text>{"  "}</Text>
-        <Text color={TONE[label.tone]}>{label.text}</Text>
+        <Text color={TONE[label.tone]} dimColor={faded}>
+          {label.text}
+        </Text>
       </Box>
     )
   const selected = active && focused
@@ -93,10 +98,11 @@ const Tile = ({
     row.record.indicator !== "link"
       ? TONE[label.tone]
       : colors.track
-  // Titles are always bold, like the strip's names. Selection is brightness:
-  // the selected card at full colour, the rest muted. Without colour it needs a shape: an inverse
+  // The content never changes with selection: titles are always bold ink.
+  // Selection is the frame alone, full colour on the selected card and
+  // muted on the rest. Without colour it needs a shape: an inverse
   // title where styles still render, a marker where nothing does.
-  const frame = selected ? tone : muted(tone)
+  const frame = selected && !faded ? tone : muted(tone)
   const plain = chalk.level === 0
   const inverse = selected && !plain && Boolean(process.env.NO_COLOR)
   const [corner, side, foot] = edgeOf(fire)
@@ -104,10 +110,9 @@ const Tile = ({
     <Box key="t" width={inner} gap={GAP}>
       <Box flexGrow={1} flexShrink={1}>
         <Text
-          color={
-            selected ? INK : muted(tone === colors.track ? colors.muted : tone)
-          }
+          color={INK}
           bold
+          dimColor={faded}
           inverse={inverse}
           wrap="truncate-end"
         >
@@ -117,7 +122,9 @@ const Tile = ({
       </Box>
       <Box flexShrink={0}>
         {row.record ? (
-          <Text color={TONE[label.tone]}>{label.text}</Text>
+          <Text color={TONE[label.tone]} dimColor={faded}>
+            {label.text}
+          </Text>
         ) : (
           <Busy label="checking" />
         )}
@@ -126,12 +133,12 @@ const Tile = ({
     <Text key="b"> </Text>,
     ...(row.record
       ? [
-          <Text key="h" color={INK} wrap="truncate-end">
+          <Text key="h" color={INK} dimColor={faded} wrap="truncate-end">
             {headline(row.record)}
           </Text>,
           <Box key="c" width={inner} gap={GAP}>
             <Box flexGrow={1} flexShrink={1}>
-              <Text color={INK} wrap="truncate-end">
+              <Text color={INK} dimColor={faded} wrap="truncate-end">
                 {affected(row.record).join(", ") || " "}
               </Text>
             </Box>
@@ -297,6 +304,7 @@ const GridLine = ({
   cell,
   nameW,
   focused,
+  faded = {},
 }: {
   line: Row[]
   first: number
@@ -304,6 +312,7 @@ const GridLine = ({
   cell: number
   nameW: number[]
   focused: boolean
+  faded?: Record<string, boolean>
 }) => (
   // A cell is a card column, less the one-cell gap between cards, so the
   // selected band stops at the card edge above it, not one cell past.
@@ -313,6 +322,7 @@ const GridLine = ({
       const label = labelOf(r)
       const extra = headline(r.record)
       const room = Math.max(1, Math.min(nameW[j], cell - 1 - MARK - 4))
+      const dim = Boolean(faded[r.service.id])
       return (
         <Box
           key={r.service.id}
@@ -325,20 +335,20 @@ const GridLine = ({
           {/* A cell too narrow for its text cuts it with an ellipsis rather
               than wrapping a name onto a second line. */}
           <Box width={room} flexShrink={0}>
-            <Text color={INK} bold wrap="truncate-end">
+            <Text color={INK} bold dimColor={dim} wrap="truncate-end">
               {r.service.name}
             </Text>
           </Box>
           <Text>{"  "}</Text>
           {r.record ? (
-            <Text color={TONE[label.tone]} wrap="truncate-end">
+            <Text color={TONE[label.tone]} dimColor={dim} wrap="truncate-end">
               {label.text}
             </Text>
           ) : (
             <Busy label="checking" />
           )}
           {extra ? (
-            <Text color={INK} wrap="truncate-end">
+            <Text color={INK} dimColor={dim} wrap="truncate-end">
               {"  "}
               {extra}
             </Text>
@@ -414,6 +424,8 @@ export type Motion = {
   heights?: Record<string, number>
   strip?: Row[]
   stripLines?: number
+  // Services drawn dim for the frame: leaving or arriving on a filter change.
+  faded?: Record<string, boolean>
 }
 
 const layout = (
@@ -448,6 +460,7 @@ const layout = (
             width={tile}
             focused={render.focused}
             height={heightOf(card)}
+            faded={Boolean(motion.faded?.[card.service.id])}
           />
         ))}
       </Box>
@@ -472,6 +485,7 @@ const layout = (
           cell={grid.cell}
           nameW={nameW}
           focused={render.focused}
+          faded={motion.faded}
         />
       ),
     }))

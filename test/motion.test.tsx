@@ -34,15 +34,33 @@ describe("motion rules", () => {
     })
   })
 
-  it("closes leaving cards, then opens arriving ones, within 200ms", () => {
+  it("dims and closes what leaves, then fades in what arrives, within 300ms", () => {
     const trouble = rows.filter((r) => r.record?.indicator !== "maintenance")
     const out = filterFrames(rows, trouble, isCard)
-    assert.ok(out.length * FRAME_MS <= 200)
+    assert.ok(out.length * FRAME_MS <= 300)
     assert.deepEqual(
       out.map((f) => Object.values(f.motion.heights ?? {})),
-      [[3], [1]],
+      [[5], [3], [1]],
+    )
+    const gone = rows.filter((r) => !trouble.includes(r))
+    for (const f of out)
+      assert.deepEqual(
+        Object.keys(f.motion.faded ?? {}).sort(),
+        gone.map((r) => r.service.id).sort(),
+      )
+    const back = filterFrames(trouble, rows, isCard)
+    assert.deepEqual(
+      back.map((f) => Object.values(f.motion.heights ?? {})),
+      [[1], [3], [6]],
     )
     assert.deepEqual(filterFrames(rows, rows, isCard), [])
+  })
+
+  it("fades lines on a filter change even when no card moves", () => {
+    const lines = rows.filter((r) => !isCard(r))
+    const out = filterFrames(rows, rows.filter(isCard), isCard)
+    assert.ok(out.length > 0)
+    assert.equal(Object.keys(out[0].motion.faded ?? {}).length, lines.length)
   })
 
   it("folds the strip through half and one line, and back", () => {
