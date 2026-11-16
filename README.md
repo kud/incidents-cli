@@ -59,7 +59,7 @@ In the interactive view the arrows mean depth: `←` and `→` move between the 
 | `←` `→`                | Between the filters, the services and a service's page  |
 | `⏎`                    | Open the service, or the filter                         |
 | `/`                    | Search names and aliases; `esc` clears it               |
-| `v`                    | Switch between the list and the board                   |
+| `v`                    | Switch between the list and the board, remembered       |
 | `o`                    | Open in the browser: the incident, else the status page |
 | `z`                    | Hide or show the ok services                            |
 | `s`                    | Sort by status (worst first) or by name                 |
@@ -134,6 +134,8 @@ services:
     aliases: [ac]
 ```
 
+The view you last chose with `v` is remembered in `${XDG_STATE_HOME:-~/.local/state}/incidents/state.json` and wins over `view` until you delete that file.
+
 With no config file the defaults are `github`, `npm`, `cloudflare` and `claude`, and one muted line names the config path.
 
 `list`, `services`, `watch` and `help` are reserved words and cannot be a service id or alias; loading fails with exit 2 and a message naming the file and the id. Any other configuration error also exits 2.
@@ -200,6 +202,7 @@ Other fields: `aliases`, `note` (printed under the detail), `timeout` (per servi
 | Variable           | Effect                                             |
 | ------------------ | -------------------------------------------------- |
 | `INCIDENTS_CONFIG` | A single config file, replacing the default lookup |
+| `XDG_STATE_HOME`   | Moves the file that remembers the last view        |
 | `NO_COLOR`         | Plain output                                       |
 | `CI`               | Forces the static output                           |
 

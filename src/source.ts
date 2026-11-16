@@ -7,6 +7,7 @@ import {
 import type { Config } from "./config.js"
 import type { Sort } from "./sort.js"
 import type { View } from "./view.js"
+import { fileState, type ViewState } from "./state.js"
 import { MOCK_SERVICES, mockRecord, mockWatchRecord } from "./mock.js"
 
 export interface Source {
@@ -14,6 +15,9 @@ export interface Source {
   note: string | null
   view?: View
   sort?: Sort
+  // Where the last view is remembered between runs. The mock has none, so
+  // a demo or a screenshot never reads or writes the real file.
+  state?: ViewState
   readAll(opts: {
     signal?: AbortSignal
     onRecord?: (record: ServiceRecord) => void
@@ -38,6 +42,7 @@ export const liveSource = (
     note,
     view: config.view,
     sort: config.sort,
+    state: fileState(),
     readAll: ({ signal, onRecord }) =>
       readAll(Object.values(config.services), { ...shared, signal, onRecord }),
     readDetail: (service, { signal }) =>

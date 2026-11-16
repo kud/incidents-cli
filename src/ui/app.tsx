@@ -123,7 +123,11 @@ export const App = ({
   const [steps, setSteps] = useState<Record<string, number>>({})
   const [closing, setClosing] = useState(false)
   const finalOrder = useRef<string[]>([])
-  const [view, setView] = useState<View>(source.view ?? "board")
+  // The view `v` last chose wins; the config's `view` is the start until
+  // then.
+  const [view, setView] = useState<View>(
+    () => source.state?.load() ?? source.view ?? "board",
+  )
   const [sort, setSort] = useState<Sort>(source.sort ?? "status")
   // The ok services: shown, hidden by `z`, or left to the board, which
   // folds them into one line when the cards would not fit beside them.
@@ -476,7 +480,11 @@ export const App = ({
     if (key.tab) return setFocus((f) => (f === "filters" ? "body" : "filters"))
     // The view keys act on the whole overview, so they answer whichever pane
     // holds focus.
-    if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
+    if (input === "v") {
+      const next = view === "list" ? "board" : "list"
+      source.state?.save(next)
+      return setView(next)
+    }
     if (input === "s")
       return setSort((s) => (s === "status" ? "name" : "status"))
     if (input === "z") return setOk(folded ? "shown" : "hidden")

@@ -37,6 +37,8 @@ services:
 
 For `timeout`, `view` and `sort`, the last file to set them wins. Any other value for `view` or `sort` is an error naming the file.
 
+The interactive view remembers the last view you chose with `v`, in `${XDG_STATE_HOME:-~/.local/state}/incidents/state.json`, and opens on it next time; `view` is the start until you have pressed `v` once. Delete that file to go back to `view`. A state file that cannot be read is ignored, and `--mock` never reads or writes it.
+
 Within `services`, a drop-in's fields are merged over the same id's fields from earlier files, so one file can add `regions` to a service another file declared.
 
 ## Service fields
@@ -80,6 +82,7 @@ Listing one with `{}` takes its built-in entry as it is; any fields you give ove
 | ------------------ | -------------------------------------------------- |
 | `INCIDENTS_CONFIG` | A single config file, replacing the default lookup |
 | `XDG_CONFIG_HOME`  | Moves the default config directory                 |
+| `XDG_STATE_HOME`   | Moves the file that remembers the last view        |
 | `NO_COLOR`         | Plain output                                       |
 | `CI`               | Forces the static output                           |
 
