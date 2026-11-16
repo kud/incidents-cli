@@ -14,7 +14,7 @@ const STATUS: Record<Indicator, Label> = {
   maintenance: { text: "◌ maintenance", tone: "info" },
   unknown: { text: "? unreadable", tone: "warning" },
   none: { text: "● ok", tone: "success" },
-  link: { text: "→ manual", tone: "muted" },
+  link: { text: "↗ manual", tone: "muted" },
 }
 
 export const statusLabel = (indicator: string): Label =>

@@ -17,7 +17,7 @@ describe("overview", () => {
 
   it("writes severity as a word, worst first", () => {
     const order = lines
-      .filter((l) => /●|◌|\?|→/.test(l))
+      .filter((l) => /●|◌|\?|↗/.test(l))
       .map((l) => l.trim().split(/\s{2,}/)[1])
     assert.deepEqual(order.slice(0, 3), [
       "Acme Cloud",
@@ -32,7 +32,7 @@ describe("overview", () => {
   it("says what a healthy, a quiet and a link row know", () => {
     assert.match(out, /● ok\s+Sample Registry\s+operational/)
     assert.match(out, /Demo Feed\s+quiet · last post 3h ago/)
-    assert.match(out, /→ manual\s+Test Docs\s+no feed, open the page/)
+    assert.match(out, /↗ manual\s+Test Docs\s+no feed, open the page/)
   })
 
   it("carries the declared-status footer and an optional note", () => {
