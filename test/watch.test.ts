@@ -124,10 +124,34 @@ describe("formatChange", () => {
     const [change] = diffSnapshots({ a: "clear" }, [down("a")], AT).changes
     assert.match(
       formatChange(change),
-      /^\d\d:\d\d:\d\d {2}A {2}clear → major {2}API errors {2}https:\/\/x\/a$/,
+      /^\d\d:\d\d:\d\d {2}A {2}clear → major {2,}API errors {2}https:\/\/x\/a$/,
     )
-    const [first] = diffSnapshots(null, [down("a")], AT).changes
-    assert.match(formatChange(first), /A {2}already major/)
+  })
+
+  it("pads the service and the move, so the headlines share a column", () => {
+    const lines = [
+      diffSnapshots({ a: "clear" }, [down("a")], AT).changes[0],
+      diffSnapshots({ bbbbbb: "unreadable" }, [down("bbbbbb", "critical")], AT)
+        .changes[0],
+    ].map((c) => formatChange(c, { nameWidth: 6 }))
+    assert.equal(
+      lines[0].indexOf("API errors"),
+      lines[1].indexOf("API errors"),
+      lines.join("\n"),
+    )
+    assert.match(lines[1], /BBBBBB {2}unreadable → critical/)
+  })
+
+  it("dates a line once the watch has run past midnight", () => {
+    const [change] = diffSnapshots({ a: "clear" }, [down("a")], AT).changes
+    const at = new Date(AT)
+    const sameDay = formatChange(change, { since: at })
+    assert.match(sameDay, /^\d\d:\d\d:\d\d {2}A/)
+    const dayBefore = new Date(at.getTime() - 86_400_000)
+    assert.match(
+      formatChange(change, { since: dayBefore }),
+      /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d {2}A/,
+    )
   })
 })
 
@@ -176,6 +200,7 @@ describe("watch", () => {
   const collect = async (opts: Partial<Parameters<typeof watch>[0]> = {}) => {
     const out: string[] = []
     const err: string[] = []
+    const info: string[] = []
     await watch({
       source: mockWatchSource(),
       intervalMs: 1,
@@ -183,10 +208,29 @@ describe("watch", () => {
       signal: new AbortController().signal,
       out: (line) => out.push(line),
       err: (line) => err.push(line),
+      info: (line) => info.push(line),
       ...opts,
     })
-    return { out, err }
+    return { out, err, info }
   }
+
+  it("starts with one line on stderr, never a line per service in trouble", async () => {
+    const { out, info } = await collect({ polls: 1, intervalMs: 300_000 })
+    assert.deepEqual(out, [])
+    assert.deepEqual(info, [
+      "watching 21 services every 5m · 10 in trouble now",
+    ])
+  })
+
+  it("prints old → new for every later change", async () => {
+    const { out } = await collect({ polls: 3 })
+    assert.equal(out.length, 2)
+    assert.match(out[0], /Sample Registry {2,}clear → major/)
+    assert.match(out[1], /Placeholder Mail {2,}unreadable → clear/)
+    // Padded to the widest name: the moves start in one column.
+    assert.equal(out[0].indexOf("→") - 6, out[1].indexOf("→") - 11)
+    assert.doesNotMatch(out.join("\n"), /already/)
+  })
 
   it("prints one JSON line per flip in the mock scenario, none on a quiet poll", async () => {
     const { out } = await collect({ json: true, polls: 3 })
@@ -201,7 +245,8 @@ describe("watch", () => {
 
   it("a failing --exec is reported per change and the watch carries on", async () => {
     const { out, err } = await collect({ exec: "exit 1" })
-    assert.equal(err.length, out.length)
+    // --exec still runs for the services already in trouble at the start.
+    assert.equal(err.length, out.length + 10)
     assert.match(err[0], /^--exec failed for acme-cloud \(exit 1\)$/)
     assert.ok(out.some((line) => line.includes("unreadable → clear")))
     assert.ok(out.some((line) => line.includes("clear → unreadable")))
@@ -281,14 +326,14 @@ describe("incidents watch", () => {
 
   it("exits 0 on SIGINT", async () => {
     const child = spawn(process.execPath, args("--interval", "5"), { env })
-    let stdout = ""
-    child.stdout.on("data", (chunk) => {
-      const first = !stdout.includes("Acme Cloud")
-      stdout += chunk
-      if (first && stdout.includes("Acme Cloud")) child.kill("SIGINT")
+    let stderr = ""
+    child.stderr.on("data", (chunk) => {
+      const first = !stderr.includes("watching")
+      stderr += chunk
+      if (first && stderr.includes("watching")) child.kill("SIGINT")
     })
     const code = await new Promise((resolve) => child.on("exit", resolve))
     assert.equal(code, 0)
-    assert.match(stdout, /Acme Cloud {2}already major/)
+    assert.match(stderr, /watching 21 services every 5m · 10 in trouble now/)
   })
 })
