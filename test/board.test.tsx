@@ -223,20 +223,23 @@ describe("board arrows", () => {
   })
 
   it("starts the manual group on a line of its own, under its column", () => {
-    // Three ok names on a line of four, then one manual page: it sits on
-    // its own line, and ↓ from any ok name lands on it.
-    const rows = MOCK.filter((r) => r.record?.indicator === "none").slice(0, 3)
+    // Three ok names, two to a line, then one manual page: it takes a line
+    // of its own rather than the free cell beside the third name.
+    const rows = MOCK.filter(
+      (r) => r.record?.indicator === "none" && r.record.kind !== "rss",
+    ).slice(0, 3)
     const manual = MOCK.filter((r) => r.record?.indicator === "link")
     const { lines } = boardShape([...rows, ...manual], 230, true)
     assert.deepEqual(
       lines.map((l) => [l.first, l.size]),
       [
-        [0, 3],
+        [0, 2],
+        [2, 1],
         [3, 1],
       ],
     )
     assert.equal(boardStep({ lines }, 2, "down"), 3)
-    assert.equal(boardStep({ lines }, 3, "up"), 0)
+    assert.equal(boardStep({ lines }, 3, "up"), 2)
   })
 
   it("leaves for the filters off the first column, card or grid", () => {

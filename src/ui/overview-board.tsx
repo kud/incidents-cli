@@ -29,7 +29,9 @@ import {
   type OverviewProps,
 } from "./overview-parts.js"
 
-const TILE = 46
+// The narrowest card: two still share a line beside the named filter column
+// at 120 columns.
+const TILE = 44
 // A card's height: its border, then the name with its status, a blank that
 // sets the name apart from what it says, the title, and the components with
 // the age.
