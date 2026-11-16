@@ -3,6 +3,10 @@ import { describe, it } from "node:test"
 import { stripVTControlCharacters } from "node:util"
 import chalk from "chalk"
 import { render } from "ink-testing-library"
+import { render as renderAt } from "ink"
+import { App } from "../src/ui/app.js"
+import { mockSource } from "../src/source.js"
+import { terminal } from "./helpers.js"
 import { FilterList, PaneTitle } from "../src/ui/filter-column.js"
 
 // Colour is the point here, so this file forces it on.
@@ -83,4 +87,35 @@ describe("filter list", () => {
     assert.match(out, /● major\s+3$/)
     assert.doesNotMatch(out, /▪/)
   })
+})
+
+describe("colour roles", () => {
+  const ORANGE = "\u001b[38;2;255;140;0m"
+  const LAVENDER = "\u001b[38;2;199;146;234m"
+
+  for (const view of ["board", "list"] as const)
+    it(`${view}: orange only on the brand and the focus underline`, async () => {
+      const { stdout, stdin } = terminal(160, 40)
+      const app = renderAt(<App source={{ ...mockSource(2), view }} />, {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        patchConsole: false,
+        exitOnCtrlC: false,
+      })
+      for (let i = 0; i < 120 && !/updated/.test(stdout.frame); i++)
+        await new Promise((r) => setTimeout(r, 25))
+      const frame = stdout.frame
+      app.unmount()
+      const after = frame
+        .split(ORANGE)
+        .slice(1)
+        .map((s) => stripVTControlCharacters(s)[0])
+      assert.ok(after.length > 0, frame)
+      for (const c of after) assert.match(c, /[◆▔]/, frame)
+      assert.ok(
+        frame.includes(view === "board" ? `${LAVENDER}┏` : `${LAVENDER}❯`),
+        frame,
+      )
+    })
 })

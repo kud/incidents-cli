@@ -31,6 +31,10 @@ export const TONE: Record<Tone, string> = {
 export const INK: string | undefined = undefined
 export const SOFT = colors.secondary
 export const BAND = colors.selection
+// What the cursor is on: the marker and a card's border take lavender, the
+// row the band. Orange is the brand's alone, warm hues the statuses', so
+// nothing reads a selection as an alert.
+export const CURSOR = colors.group
 export const FRAME_SIDES = 4
 export const GAP = 2
 // The selection gutter: the marker, then a space. It is as wide as a card's
@@ -70,9 +74,7 @@ export const Marker = ({
   active: boolean
   focused?: boolean
 }) => (
-  <Text color={focused ? colors.accent : colors.muted}>
-    {active ? "❯ " : "  "}
-  </Text>
+  <Text color={focused ? CURSOR : colors.muted}>{active ? "❯ " : "  "}</Text>
 )
 
 // The status cell: glyph and word in the tone's colour, so the status never

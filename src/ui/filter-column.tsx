@@ -2,7 +2,7 @@ import { Box, Text } from "ink"
 import type { ReactNode } from "react"
 import { colors } from "@kud/ink-ui"
 import { FILTER_FULL, type FilterId } from "./overview-model.js"
-import { BAND, INK, pad } from "./overview-parts.js"
+import { BAND, CURSOR, INK, pad } from "./overview-parts.js"
 
 // The filters stacked beside the body. Each row carries its count, so the
 // column is the tally as well as the filter: one place answers both "how bad
@@ -59,9 +59,11 @@ export const PaneTitle = ({
     </Box>
     <Text wrap="truncate-end">
       {" ".repeat(indent)}
-      <Text color={colors.accent}>
-        {focused ? "▔".repeat([...label].length) : " "}
-      </Text>
+      {focused ? (
+        <Text color={colors.accent}>{"▔".repeat([...label].length)}</Text>
+      ) : (
+        " "
+      )}
     </Text>
   </Box>
 )
@@ -110,7 +112,7 @@ export const FilterList = ({
         <Box key={item.id} flexDirection="column" flexShrink={0}>
           {breakBefore(i, items.length) ? <Text> </Text> : null}
           <Box backgroundColor={on && focused ? BAND : undefined}>
-            <Text color={focused ? colors.accent : colors.muted}>
+            <Text color={focused ? CURSOR : colors.muted}>
               {on ? " ❯ " : "   "}
             </Text>
             <Text color={item.color}>{pad(item.glyph, GLYPH_W)}</Text>

@@ -12,6 +12,7 @@ import {
 } from "./overview-model.js"
 import {
   BAND,
+  CURSOR,
   Empty,
   Footer,
   GAP,
@@ -52,10 +53,12 @@ const Tile = ({
       height={TILE_LINES}
       flexDirection="column"
       borderStyle={active ? "bold" : "round"}
-      borderColor={active ? (focused ? colors.accent : SOFT) : colors.track}
+      borderColor={active ? (focused ? CURSOR : SOFT) : colors.track}
       // The left edge carries the status tone, selected or not: the status
       // belongs to the card, the rest of the border to the cursor.
       borderLeftColor={TONE[label.tone]}
+      // The selected card takes the band, as a selected row does.
+      backgroundColor={active && focused ? BAND : undefined}
       paddingX={1}
     >
       <Box width={inner} gap={GAP}>
