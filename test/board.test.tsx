@@ -5,7 +5,7 @@ import { render } from "ink"
 import { App } from "../src/ui/app.js"
 import { boardFits, boardShape, boardStep } from "../src/ui/overview-board.js"
 import { MOCK_SERVICES, mockRecord } from "../src/mock.js"
-import { navOrder } from "../src/ui/overview-model.js"
+import { boardGroups, navOrder } from "../src/ui/overview-model.js"
 import { mockSource } from "../src/source.js"
 import { terminal, bodyOf } from "./helpers.js"
 
@@ -348,11 +348,26 @@ describe("first load", () => {
   const lineWith = (frame: string, text: string) =>
     frame.split("\n").find((l) => l.includes(text)) ?? ""
 
+  it("board: every service is a card while loading, in config order", () => {
+    // The loading render goes through the same card layout as the loaded
+    // one: no strip, no third layout, and the order is the config's.
+    const pending = MOCK_SERVICES.map((service) => ({ service }))
+    const groups = boardGroups(pending, false)
+    assert.equal(groups.cards, pending)
+    assert.deepEqual(groups.strip, [])
+    assert.deepEqual(groups.manual, [])
+    const lines = boardShape(pending, 132, false).lines
+    assert.ok(lines.every((l) => l.span === 1 && l.size <= 2))
+  })
+
   it("board: skeleton cards in the real grid, same tile and gutters", async () => {
     const { loading, done } = await load("board")
     // A card per service, its name known, a shimmer for what it will say.
     assert.match(loading, /[┃│] Acme Cloud\s+◌ checking [┃│]/, loading)
     assert.match(loading, /▀/)
+    // Status words are never cut, loading or loaded.
+    for (const f of [loading, done])
+      assert.doesNotMatch(f, /◌ checki?…|● mi?n?…|\? unrea…|◌ mainten?…/)
     assert.doesNotMatch(loading, /◌ checking\s+\S+ {2,}◌ checking/)
     // The top edges of the first card line sit where the real ones land.
     const edges = (f: string) =>
