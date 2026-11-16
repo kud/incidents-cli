@@ -93,8 +93,8 @@ const Tile = ({
     row.record.indicator !== "link"
       ? TONE[label.tone]
       : colors.track
-  // Selection is brightness: the selected card at full colour with a bold
-  // title, the rest muted. Without colour it needs a shape: an inverse
+  // Titles are always bold, like the strip's names. Selection is brightness:
+  // the selected card at full colour, the rest muted. Without colour it needs a shape: an inverse
   // title where styles still render, a marker where nothing does.
   const frame = selected ? tone : muted(tone)
   const plain = chalk.level === 0
@@ -107,7 +107,7 @@ const Tile = ({
           color={
             selected ? INK : muted(tone === colors.track ? colors.muted : tone)
           }
-          bold={selected}
+          bold
           inverse={inverse}
           wrap="truncate-end"
         >
