@@ -383,6 +383,30 @@ describe("search", () => {
   })
 })
 
+describe("short window", () => {
+  it("cuts the panes at the bottom, never over the keys", async () => {
+    const { stdout, stdin } = terminal(120, 14)
+    const app = renderAt(<App source={{ ...mockSource(2), view: "list" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    await until(frame, /updated/)
+    stdin.press("/")
+    const done = await until(frame, /⏎ done/)
+    const keys = done.split("\n").find((l) => l.includes("⏎ done")) ?? ""
+    assert.match(
+      keys,
+      /^│ {3}↑↓ move {2}⏎ done {2}⌃u clear {2,}1 of 21 │$/,
+      done,
+    )
+    app.unmount()
+  })
+})
+
 describe("footer keys", () => {
   // Six keys at most, quit always last; the counter shares the row with the
   // services pane and hides while the filters have the keys. `q quit` never

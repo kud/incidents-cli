@@ -146,7 +146,9 @@ export const Frame = ({
     overflow="hidden"
   >
     <Header brand={brand} crumb={crumb} segments={segments} width={columns} />
-    <Box flexDirection="column" flexGrow={1} marginTop={1}>
+    {/* The body is clipped to its rows: on a short window a pane is cut at
+        the bottom, never drawn over the keys. */}
+    <Box flexDirection="column" flexGrow={1} marginTop={1} overflow="hidden">
       {children}
     </Box>
     <Box paddingLeft={TEXT_COLUMN} paddingRight={1} flexShrink={0}>
