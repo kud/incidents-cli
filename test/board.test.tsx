@@ -300,6 +300,30 @@ describe("board arrows", () => {
   })
 })
 
+describe("board paging", () => {
+  it("G reaches the last service, g the first", async () => {
+    const { stdout, stdin } = terminal(160, 60)
+    const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    await until(frame, /updated/)
+    stdin.press("G")
+    assert.match(await until(frame, /21 of 21/), /❯ Test Docs/)
+    stdin.press("g")
+    await until(frame, /1 of 21/)
+    assert.equal(selectedOf(frame()), "Acme Cloud")
+    stdin.press("\x1b[6~")
+    const paged = await until(frame, /\b(?!1 of)\d+ of 21/)
+    assert.ok(Number(/(\d+) of 21/.exec(paged)![1]) > 2, paged)
+    app.unmount()
+  })
+})
+
 describe("grid while loading", () => {
   it("cuts a long name with an ellipsis rather than wrapping it", async () => {
     const { stdout, stdin } = terminal(120, 40)

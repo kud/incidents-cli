@@ -13,6 +13,7 @@ import { FRAME_ROWS, Frame, TEXT_COLUMN, type Hint } from "./frame.js"
 import { overviewSegments, statusSegment } from "./header.js"
 import {
   BoardOverview,
+  TILE_LINES,
   boardFits,
   boardShape,
   boardStep,
@@ -336,8 +337,15 @@ export const App = ({
         return setActive(FILTERS[next].id)
       }
       if (key.rightArrow || key.return) return setFocus("body")
+      if (input === "g") return setActive(FILTERS[0].id)
+      if (input === "G") return setActive(FILTERS[FILTERS.length - 1].id)
       return
     }
+    // First, last and a page at a time, as on a service's page.
+    if (input === "g") return setCursor(0)
+    if (input === "G") return setCursor(Math.max(0, visible.length - 1))
+    if (key.pageDown || input === " " || input === "f") return page("down")
+    if (key.pageUp || input === "b") return page("up")
     const open = () => {
       if (visible[cursor]) openDetail(visible[cursor].service.id)
     }
@@ -357,6 +365,31 @@ export const App = ({
             : null
     if (dir) step(dir)
   })
+
+  // A page of the services pane: the rows it holds in the list, the card
+  // lines that fit on the board.
+  function page(dir: "up" | "down") {
+    if (!visible.length) return
+    if (view === "list") {
+      const rows = Math.max(1, paneHeight - 2)
+      setCursor((c) =>
+        Math.max(
+          0,
+          Math.min(visible.length - 1, c + (dir === "up" ? -rows : rows)),
+        ),
+      )
+      return
+    }
+    const shape = boardShape(visible, bodyW, sorted)
+    const lines = Math.max(1, Math.floor((paneHeight - 1) / TILE_LINES))
+    let at = cursor
+    for (let i = 0; i < lines; i++) {
+      const next = boardStep(shape, at, dir)
+      if (next === "filters" || next === at) break
+      at = next
+    }
+    setCursor(at)
+  }
 
   // One move of the cursor in the services pane. The list is one column; the
   // board walks in two, and ← off its first column steps out to the filters.

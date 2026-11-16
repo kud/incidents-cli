@@ -238,6 +238,20 @@ describe("list keys", () => {
     app.unmount()
   })
 
+  it("g and G go to the first and last, page keys a page at a time", async () => {
+    const { app, press, on } = await ready()
+    assert.match(await press("G"), /21 of 21/)
+    assert.match(on(), /Test Docs/)
+    assert.match(await press("g"), /1 of 21/)
+    const down = await press("\x1b[6~")
+    const at = Number(/(\d+) of 21/.exec(down)![1])
+    assert.ok(at > 10, down)
+    assert.match(await press("\x1b[5~"), /1 of 21/)
+    assert.match(await press(" "), new RegExp(`${at} of 21`))
+    assert.match(await press("b"), /1 of 21/)
+    app.unmount()
+  })
+
   it("tab goes to the filters and back without moving the cursor", async () => {
     const { app, press, on } = await ready()
     await press(DOWN, 3)

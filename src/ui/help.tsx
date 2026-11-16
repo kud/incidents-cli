@@ -15,6 +15,8 @@ export const KEY_GROUPS: KeyGroup[] = [
       ["←  →", "filters, services, a service's page"],
       ["⏎", "open the service, or the filter"],
       ["tab", "between the filters and the services"],
+      ["g  G", "first, last"],
+      ["PgUp  PgDn", "a page up, a page down"],
     ],
   },
   {
