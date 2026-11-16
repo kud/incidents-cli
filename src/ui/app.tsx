@@ -4,6 +4,7 @@ import { colors, useFilterMode, useListCursor, useTabs } from "@kud/ink-ui"
 import { worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
+import type { Pins } from "../state.js"
 import { linkTarget, openInBrowser, type Opener } from "../open-url.js"
 import { DetailBody } from "./detail.js"
 import { HelpOverlay } from "./help.js"
@@ -39,6 +40,8 @@ import {
   hiddenParts,
   narrow,
   navOrder,
+  pinFirst,
+  pinnedIds,
   type FilterId,
   type Row,
 } from "./overview-model.js"
@@ -198,13 +201,22 @@ export const App = ({
         .map((s) => s.id),
     [source],
   )
+  // Pins: the config's, overridden by `p`, remembered with the view.
+  const [pins, setPins] = useState<Pins>(
+    () => source.state?.loadPins() ?? { set: {}, order: [] },
+  )
+  const pinned = useMemo(() => pinnedIds(source.services, pins), [source, pins])
   const rows: Row[] = useMemo(
     () =>
-      (sort === "name" ? byName : order).flatMap((id) => {
-        const service = source.services.find((s) => s.id === id)
-        return service ? [{ service, record: records[id] }] : []
-      }),
-    [sort, byName, order, records, source],
+      pinFirst(
+        (sort === "name" ? byName : order).flatMap((id) => {
+          const service = source.services.find((s) => s.id === id)
+          return service ? [{ service, record: records[id] }] : []
+        }),
+        pinned,
+        sorted,
+      ),
+    [sort, byName, order, records, source, pinned, sorted],
   )
 
   const atRoot = detailId === null
@@ -398,6 +410,22 @@ export const App = ({
     setDetailId(null)
   }
 
+  // A one-line notice in the footer: bright for a moment, then dim for the
+  // two frames a transition takes, then gone.
+  const [toast, setToast] = useState<{ text: string; fading: boolean } | null>(
+    null,
+  )
+  const say = (text: string) => setToast({ text, fading: false })
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(
+      () =>
+        setToast(toast.fading || !animate ? null : { ...toast, fading: true }),
+      toast.fading ? 2 * FRAME_MS : 1200,
+    )
+    return () => clearTimeout(timer)
+  }, [toast])
+
   const onFilters = focus === "filters"
   const { exit } = useApp()
 
@@ -450,6 +478,21 @@ export const App = ({
     if (input === "s")
       return setSort((s) => (s === "status" ? "name" : "status"))
     if (input === "z") return setOk(folded ? "shown" : "hidden")
+    if (input === "p") {
+      const row = visible[cursor]
+      if (!row) return
+      const id = row.service.id
+      const on = !pinned.includes(id)
+      const next: Pins = {
+        set: { ...pins.set, [id]: on },
+        order: on
+          ? [...pins.order.filter((x) => x !== id), id]
+          : pins.order.filter((x) => x !== id),
+      }
+      setPins(next)
+      source.state?.savePins(next)
+      return say(`${on ? "Pinned" : "Unpinned"} ${row.service.name}`)
+    }
     if (onFilters) {
       const back = key.upArrow || input === "k"
       const on = key.downArrow || input === "j"
@@ -640,7 +683,11 @@ export const App = ({
   // The keys share their row with the counter; at a narrow width the least
   // used ones drop rather than wrap.
   const hintRoom =
-    columns - 2 - TEXT_COLUMN - 1 - (counter ? 2 + counter.length : 0)
+    columns -
+    2 -
+    TEXT_COLUMN -
+    1 -
+    (toast ? 2 + toast.text.length : counter ? 2 + counter.length : 0)
   return (
     <Frame
       columns={columns}
@@ -655,6 +702,7 @@ export const App = ({
       })}
       hints={typing ? hints : fitHints(hints, hintRoom, ["v", "/", "esc", "?"])}
       counter={counter || undefined}
+      notice={toast ?? undefined}
     >
       {help ? <HelpOverlay indent={TEXT_COLUMN} width={columns} /> : null}
       <Box display={help ? "none" : "flex"} flexDirection="column" flexGrow={1}>

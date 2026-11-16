@@ -52,6 +52,9 @@ const problemsOf = (svc: Service): string[] => {
       ? ["needs an https url"]
       : []),
     ...(svc.kind === "rss" && !svc.feed ? ["needs a feed"] : []),
+    ...(svc.pinned === undefined || typeof svc.pinned === "boolean"
+      ? []
+      : ["pinned must be true or false"]),
   ]
 }
 

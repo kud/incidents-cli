@@ -15,6 +15,8 @@ import {
 import {
   BAND,
   StatusTag,
+  GroupHeading,
+  PinMark,
   Empty,
   Footer,
   GAP,
@@ -256,11 +258,21 @@ export const ListOverview = ({
   const rowW = preview ? left - GAP : left
   // Name, status and age hold their columns; the headline takes the rest
   // and is cut at the row's edge.
-  const fixed = MARK + nameW + GAP + statusW + GAP + (ageW ? ageW + GAP : 0)
+  // Room for the pinned mark before every name, once anything is pinned, so
+  // the names keep one column.
+  const mark = all.some((r) => r.pinned) ? 2 : 0
+  const fixed =
+    MARK + mark + nameW + GAP + statusW + GAP + (ageW ? ageW + GAP : 0)
   const titleW = Math.max(0, rowW - fixed)
   const breaks = runBreaks(rows, sorted, sort)
 
   const lines: { key: string; node: ReactNode; holds?: number }[] = []
+  const pinnedCount = rows.filter((r) => r.pinned).length
+  if (pinnedCount)
+    lines.push({
+      key: "pinned",
+      node: <GroupHeading title="Pinned" count={pinnedCount} />,
+    })
   rows.forEach((row, i) => {
     if (breaks.has(i)) lines.push({ key: `gap-${i}`, node: <Text> </Text> })
     const active = i === cursor
@@ -276,6 +288,7 @@ export const ListOverview = ({
           backgroundColor={active && focused ? BAND : undefined}
         >
           <Marker active={active} focused={focused} />
+          {mark ? <PinMark on={Boolean(row.pinned)} /> : null}
           <Text color={INK} bold dimColor={faded}>
             {pad(row.service.name, nameW + GAP)}
           </Text>

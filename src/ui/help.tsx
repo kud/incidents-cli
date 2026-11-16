@@ -26,6 +26,7 @@ export const KEY_GROUPS: KeyGroup[] = [
       ["v", "board or list"],
       ["s", "by status or by name"],
       ["z", "hide or show ok"],
+      ["p", "pin / unpin"],
     ],
   },
   {
@@ -107,7 +108,10 @@ export const HelpOverlay = ({
           </Box>
         ))}
       </Box>
-      <Box marginTop={1} flexShrink={0}>
+      <Box marginTop={1} flexDirection="column" flexShrink={0}>
+        <Text color={colors.muted} wrap="truncate-end">
+          A pin set with p overrides pinned in the config.
+        </Text>
         <Text color={colors.muted} wrap="truncate-end">
           {DISCLAIMER}
         </Text>

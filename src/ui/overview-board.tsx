@@ -24,6 +24,9 @@ import {
   Marker,
   Pending,
   StatusTag,
+  GroupHeading,
+  PIN,
+  PinMark,
   pendingWidth,
   TONE,
   useMeasuredHeight,
@@ -91,6 +94,7 @@ const Tile = ({
   if (height <= 1)
     return (
       <Box width={width} height={1} flexShrink={0} paddingLeft={MARK}>
+        {row.pinned ? <PinMark on /> : null}
         <Text color={INK} bold dimColor={faded} wrap="truncate-end">
           {row.service.name}
         </Text>
@@ -115,8 +119,11 @@ const Tile = ({
   // title where styles still render, a marker where nothing does.
   // A card on fire is never softened by half like the rest: it keeps most of
   // its red, so it still reads as loud while another card is selected.
+  // A pinned card in trouble keeps the same soft frame: it was pinned to be
+  // watched.
+  const loud = fire || (Boolean(row.pinned) && tone !== colors.track)
   const frame =
-    selected && !faded ? tone : fire && !faded ? soft(tone) : muted(tone)
+    selected && !faded ? tone : loud && !faded ? soft(tone) : muted(tone)
   const plain = chalk.level === 0
   const inverse = selected && !plain && Boolean(process.env.NO_COLOR)
   const [corner, side, foot] = edgeOf(fire)
@@ -131,6 +138,11 @@ const Tile = ({
           wrap="truncate-end"
         >
           {selected && plain ? "❯ " : ""}
+          {row.pinned ? (
+            <Text color={colors.muted} bold={false}>
+              {`${PIN} `}
+            </Text>
+          ) : null}
           {row.service.name}
         </Text>
       </Box>
@@ -262,25 +274,32 @@ export const boardShape = (
   width: number,
   sorted: boolean,
 ): BoardShape => {
-  const { cards, strip, manual } = boardGroups(rows, sorted)
+  const { pinned, cards, strip, manual } = boardGroups(rows, sorted)
   const { perLine, tile } = tiles(width)
   const grid = gridOf([...strip, ...manual], width, tile, perLine, sorted)
+  const pinnedLines = lineUp(
+    chunk(pinned, perLine).map((l) => l.length),
+    1,
+    0,
+  )
   const cardLines = lineUp(
     chunk(cards, perLine).map((l) => l.length),
     1,
-    0,
+    pinned.length,
   )
   const stripLines = lineUp(
     chunk(strip, grid.across).map((l) => l.length),
     grid.span,
-    cards.length,
+    pinned.length + cards.length,
   )
   const manualLines = lineUp(
     chunk(manual, grid.across).map((l) => l.length),
     grid.span,
-    cards.length + strip.length,
+    pinned.length + cards.length + strip.length,
   )
-  return { lines: [...cardLines, ...stripLines, ...manualLines] }
+  return {
+    lines: [...pinnedLines, ...cardLines, ...stripLines, ...manualLines],
+  }
 }
 
 export type Direction = "left" | "right" | "up" | "down"
@@ -449,23 +468,27 @@ const layout = (
   motion: Motion = {},
 ) => {
   const groups = boardGroups(rows, sorted)
-  const { cards, manual } = groups
+  const { pinned, manual } = groups
+  const others = groups.cards
   const strip = sorted ? groups.strip : (motion.strip ?? [])
   const heightOf = (r: Row) => motion.heights?.[r.service.id] ?? TILE_LINES
   const { perLine, tile } = tiles(width)
   const grid = gridOf([...strip, ...manual], width, tile, perLine, sorted)
-  const cardBands: Band[] = chunk(cards, perLine).map((line, n) => ({
-    key: `c${n}`,
+  // The pinned cards lead under their heading, then the rest; the cursor
+  // reads across both as one run of cards.
+  const cards = [...pinned, ...others]
+  const cardLine = (line: Row[], first: number, key: string): Band => ({
+    key,
     height: Math.max(...line.map(heightOf)),
-    first: n * perLine,
+    first,
     size: line.length,
     draw: () => (
-      <Box key={`c${n}`} gap={1} flexShrink={0}>
+      <Box key={key} gap={1} flexShrink={0}>
         {line.map((card, j) => (
           <Tile
             key={card.service.id}
             row={card}
-            active={n * perLine + j === render.cursor}
+            active={first + j === render.cursor}
             width={tile}
             focused={render.focused}
             height={heightOf(card)}
@@ -474,7 +497,26 @@ const layout = (
         ))}
       </Box>
     ),
-  }))
+  })
+  const heading: Band[] = pinned.length
+    ? [
+        {
+          key: "pinned",
+          height: 1,
+          first: -1,
+          size: 0,
+          draw: () => (
+            <GroupHeading key="pinned" title="Pinned" count={pinned.length} />
+          ),
+        },
+      ]
+    : []
+  const pinnedBands = chunk(pinned, perLine).map((line, n) =>
+    cardLine(line, n * perLine, `p${n}`),
+  )
+  const otherBands = chunk(others, perLine).map((line, n) =>
+    cardLine(line, pinned.length + n * perLine, `c${n}`),
+  )
   const gridGroup = (group: Row[], start: number, tag: string): Band[] => {
     const lines = chunk(group, grid.across)
     const nameW = Array.from({ length: grid.across }, (_, j) =>
@@ -506,6 +548,12 @@ const layout = (
     size: 0,
     draw: () => <Text key={key}> </Text>,
   })
+  const cardBands: Band[] = [
+    ...heading,
+    ...pinnedBands,
+    ...(pinnedBands.length && otherBands.length ? [blank("pc")] : []),
+    ...otherBands,
+  ]
   // The strip folded to one line: how many are ok, and the key that shows
   // them.
   const folded: Band[] =

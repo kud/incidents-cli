@@ -126,6 +126,7 @@ export const Frame = ({
   segments,
   hints,
   counter,
+  notice,
   children,
 }: {
   columns: number
@@ -135,6 +136,9 @@ export const Frame = ({
   segments: Segment[]
   hints: Hint[]
   counter?: string
+  // A one-line notice that takes the counter's place for a moment, bright,
+  // dimming as it goes.
+  notice?: { text: string; fading: boolean }
   children: ReactNode
 }) => (
   <Box
@@ -155,7 +159,13 @@ export const Frame = ({
       <Box flexGrow={1}>
         <Hints hints={hints} />
       </Box>
-      {counter ? (
+      {notice ? (
+        <Box flexShrink={0} marginLeft={2}>
+          <Text bold={!notice.fading} dimColor={notice.fading}>
+            {notice.text}
+          </Text>
+        </Box>
+      ) : counter ? (
         <Box flexShrink={0} marginLeft={2}>
           <Text dimColor>{counter}</Text>
         </Box>

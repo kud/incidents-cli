@@ -13,6 +13,8 @@ export interface Service {
   regions?: string[]
   aliases: string[]
   note?: string
+  // Pinned from the config: kept at the top of the overview, always a card.
+  pinned?: boolean
   timeout?: number
 }
 

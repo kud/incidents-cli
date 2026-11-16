@@ -64,7 +64,12 @@ describe("view state file", () => {
 describe("remembered view", () => {
   const spy = (stored?: View) => {
     const saved: View[] = []
-    const state: ViewState = { load: () => stored, save: (v) => saved.push(v) }
+    const state: ViewState = {
+      load: () => stored,
+      save: (v) => saved.push(v),
+      loadPins: () => ({ set: {}, order: [] }),
+      savePins: () => undefined,
+    }
     return { state, saved }
   }
   const open = (source: Parameters<typeof App>[0]["source"]) => {

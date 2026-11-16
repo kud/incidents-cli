@@ -356,7 +356,8 @@ describe("first load", () => {
     // one: no strip, no third layout, and the order is the config's.
     const pending = MOCK_SERVICES.map((service) => ({ service }))
     const groups = boardGroups(pending, false)
-    assert.equal(groups.cards, pending)
+    assert.deepEqual(groups.cards, pending)
+    assert.deepEqual(groups.pinned, [])
     assert.deepEqual(groups.strip, [])
     assert.deepEqual(groups.manual, [])
     const lines = boardShape(pending, 132, false).lines

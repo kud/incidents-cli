@@ -7,7 +7,9 @@ import {
 import { statusLabel, type Label } from "../labels.js"
 export { ageText, headline, startedAt } from "../summary.js"
 
-export type Row = { service: Service; record?: ServiceRecord }
+// `pinned`: kept at the top of the overview, in a group of its own, and
+// always a card on the board.
+export type Row = { service: Service; record?: ServiceRecord; pinned?: boolean }
 
 import type { Sort } from "../sort.js"
 import type { View } from "../view.js"
@@ -56,13 +58,18 @@ export const isTrouble = (row: Row): boolean =>
 // The board gives a card to anything worth reading in full: trouble, and a
 // maintenance window, which has a title and an end even though it is clear.
 export const isCard = (row: Row): boolean =>
-  isTrouble(row) || row.record?.indicator === "maintenance"
+  Boolean(row.pinned) ||
+  isTrouble(row) ||
+  row.record?.indicator === "maintenance"
 
 export const isHealthy = (row: Row): boolean => row.record?.indicator === "none"
 
+// "all" and "trouble" keep the pinned group whole; a status filter is
+// strict, and shows a pin only when it matches.
 const holds = (filter: FilterId, row: Row): boolean => {
   const spec = FILTERS.find((f) => f.id === filter)
   if (!spec?.holds) return true
+  if (filter === "trouble" && row.pinned) return true
   return (
     row.record !== undefined &&
     spec.holds.includes(row.record.indicator as Indicator)
@@ -104,7 +111,10 @@ export const narrow = (
 ): Narrowed => {
   const searched = searchRows(rows, term)
   const tabbed = searched.filter((r) => holds(filter, r))
-  const shown = folded ? tabbed.filter((r) => !isHealthy(r)) : tabbed
+  // The fold takes the ok services, never a pin.
+  const shown = folded
+    ? tabbed.filter((r) => !isHealthy(r) || r.pinned)
+    : tabbed
   return {
     rows: shown,
     counts: filterCounts(searched),
@@ -167,8 +177,58 @@ export const hiddenLine = (parts: HiddenPart[]): string =>
 // ↓ has to follow the eye there rather than the list's order.
 export const navOrder = (view: View, rows: Row[]): Row[] => {
   if (view !== "board") return rows
-  const { cards, strip, manual } = boardGroups(rows, true)
-  return [...cards, ...strip, ...manual]
+  const { pinned, cards, strip, manual } = boardGroups(rows, true)
+  return [...pinned, ...cards, ...strip, ...manual]
+}
+
+// Pins in force: the config's, in config order, less any unpinned with
+// `p`; then those pinned with `p`, in the order they were pinned. A toggle
+// overrides the config until it is toggled again.
+export const pinnedIds = (
+  services: Service[],
+  pins: { set: Record<string, boolean>; order: string[] },
+): string[] => {
+  const known = new Set(services.map((s) => s.id))
+  const fromConfig = services
+    .filter((s) => s.pinned && pins.set[s.id] !== false)
+    .map((s) => s.id)
+  const fromToggle = pins.order.filter(
+    (id) => known.has(id) && pins.set[id] === true && !fromConfig.includes(id),
+  )
+  return [...fromConfig, ...fromToggle]
+}
+
+// Worst first, as the pinned group orders itself: major, minor, unreadable,
+// maintenance, manual, ok, then whatever has not answered.
+const PIN_RANK: Record<string, number> = {
+  critical: 0,
+  major: 1,
+  minor: 2,
+  unknown: 3,
+  maintenance: 4,
+  link: 5,
+  none: 6,
+}
+
+// The pinned rows first, marked, then the rest as they were. Within the
+// pins: worst status first once the sort has landed, then pin order.
+export const pinFirst = (
+  rows: Row[],
+  pinned: string[],
+  sorted: boolean,
+): Row[] => {
+  const at = new Map(pinned.map((id, i) => [id, i]))
+  const pins = rows
+    .filter((r) => at.has(r.service.id))
+    .map((r) => ({ ...r, pinned: true }))
+    .sort(
+      (a, b) =>
+        (sorted
+          ? (PIN_RANK[a.record?.indicator ?? ""] ?? 7) -
+            (PIN_RANK[b.record?.indicator ?? ""] ?? 7)
+          : 0) || at.get(a.service.id)! - at.get(b.service.id)!,
+    )
+  return [...pins, ...rows.filter((r) => !at.has(r.service.id))]
 }
 
 // The board's three groups, in the order it draws them: a card for each
@@ -180,13 +240,16 @@ export const navOrder = (view: View, rows: Row[]): Row[] => {
 export const boardGroups = (
   rows: Row[],
   sorted: boolean,
-): { cards: Row[]; strip: Row[]; manual: Row[] } => {
-  if (!sorted) return { cards: rows, strip: [], manual: [] }
+): { pinned: Row[]; cards: Row[]; strip: Row[]; manual: Row[] } => {
+  const pinned = rows.filter((r) => r.pinned)
+  const rest = rows.filter((r) => !r.pinned)
+  if (!sorted) return { pinned, cards: rest, strip: [], manual: [] }
   const isManual = (r: Row) => r.record?.indicator === "link"
   return {
-    cards: rows.filter(isCard),
-    strip: rows.filter((r) => !isCard(r) && !isManual(r)),
-    manual: rows.filter((r) => !isCard(r) && isManual(r)),
+    pinned,
+    cards: rest.filter(isCard),
+    strip: rest.filter((r) => !isCard(r) && !isManual(r)),
+    manual: rest.filter((r) => !isCard(r) && isManual(r)),
   }
 }
 
@@ -195,19 +258,26 @@ export const affected = (r?: ServiceRecord): string[] =>
     .filter((c) => c.status !== "operational")
     .map((c) => c.name)
 
-// A blank line goes where the severity changes, but only once the rows hold
-// their sorted order: while they still sit in config order every row would
-// be its own run. By name there are no runs to mark.
+// A blank line sets the pinned group apart, and goes where the severity
+// changes, but only once the rows hold their sorted order: while they still
+// sit in config order every row would be its own run. By name there are no
+// severity runs to mark.
 export const runBreaks = (
   rows: Row[],
   sorted: boolean,
   sort: Sort = "status",
 ): Set<number> => {
   const breaks = new Set<number>()
-  if (!sorted || sort !== "status") return breaks
+  const runs = sorted && sort === "status"
   rows.forEach((r, i) => {
-    if (i && r.record?.indicator !== rows[i - 1].record?.indicator)
-      breaks.add(i)
+    if (!i) return
+    const prev = rows[i - 1]
+    // The pinned group is one run, set apart from the rest in any order.
+    if (r.pinned || prev.pinned) {
+      if (Boolean(r.pinned) !== Boolean(prev.pinned)) breaks.add(i)
+      return
+    }
+    if (runs && r.record?.indicator !== prev.record?.indicator) breaks.add(i)
   })
   return breaks
 }

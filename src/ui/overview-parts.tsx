@@ -179,6 +179,29 @@ export const Pending = ({
   )
 }
 
+// A group's heading above its rows, as the detail page heads its sections:
+// the name in bold, then the count.
+export const GroupHeading = ({
+  title,
+  count,
+}: {
+  title: string
+  count: number
+}) => (
+  <Box paddingLeft={MARK} flexShrink={0}>
+    <Text color={INK} bold>
+      {title}
+    </Text>
+    <Text color={INK}>{`  ${count}`}</Text>
+  </Box>
+)
+
+// The pinned mark before a name: muted, so it marks without shouting.
+export const PIN = "◆"
+export const PinMark = ({ on }: { on: boolean }) => (
+  <Text color={colors.muted}>{on ? `${PIN} ` : "  "}</Text>
+)
+
 export const HiddenNote = ({ parts }: { parts: HiddenPart[] }) =>
   parts.length ? (
     <Box paddingLeft={MARK}>
