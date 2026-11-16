@@ -1,22 +1,17 @@
 import { Box, Text } from "ink"
 import { colors, palette } from "@kud/ink-ui"
-import {
-  BAR_MAX,
-  FILTER_FULL,
-  barCells,
-  type FilterId,
-} from "./overview-model.js"
+import { FILTER_FULL, type FilterId } from "./overview-model.js"
 import { BAND, INK, pad } from "./overview-parts.js"
 
-// The filters stacked beside the body. Each row carries a bar sized to its
-// count, so the column is the tally as well as the filter: one place answers
-// both "how bad is it" and "show me only that".
+// The filters stacked beside the body. Each row carries its count, so the
+// column is the tally as well as the filter: one place answers both "how bad
+// is it" and "show me only that".
 // The column's own gutter: a space, the marker, a space, so the marker sits
 // under the first letter of the pane title.
 const GUTTER = 3
 const GLYPH_W = 2
 const COUNT_W = 3
-const NAME_W = FILTER_FULL - GUTTER - GLYPH_W - COUNT_W - 1 - BAR_MAX
+const NAME_W = FILTER_FULL - GUTTER - GLYPH_W - COUNT_W - 1
 
 export type FilterItem = {
   id: FilterId
@@ -80,14 +75,12 @@ export const FilterList = ({
   items,
   active,
   focused,
-  total,
   full,
   settled,
 }: {
   items: FilterItem[]
   active: FilterId
   focused: boolean
-  total: number
   full: boolean
   settled: boolean
 }) => (
@@ -97,9 +90,10 @@ export const FilterList = ({
       // Until every service has answered, only "all" knows its count; the
       // rest hold a quiet dot in the count's own cell, so nothing shifts.
       const known = settled || item.id === "all"
+      // An empty filter dims its count, never its glyph: the colour says what
+      // the filter holds, whether or not anything is in it right now.
       const empty = known && item.count === 0
       const tone = INK
-      const bar = known ? barCells(item.count, total, item.id) : 0
       return (
         <Box key={item.id} flexDirection="column" flexShrink={0}>
           {breakBefore(i, items.length) ? <Text> </Text> : null}
@@ -107,20 +101,18 @@ export const FilterList = ({
             <Text color={focused ? colors.accent : colors.muted}>
               {on ? " ❯ " : "   "}
             </Text>
-            <Text color={empty ? colors.muted : item.color}>
-              {pad(item.glyph, GLYPH_W)}
-            </Text>
+            <Text color={item.color}>{pad(item.glyph, GLYPH_W)}</Text>
             {full ? (
               <Text color={tone} bold={on}>
                 {pad(item.name, NAME_W)}
               </Text>
             ) : null}
-            <Text color={known ? tone : colors.muted} bold={on && known}>
+            <Text
+              color={known && !empty ? tone : colors.muted}
+              bold={on && known}
+            >
               {(known ? String(item.count) : "·").padStart(COUNT_W)}
             </Text>
-            {full ? (
-              <Text color={item.color}>{" " + "▪".repeat(bar)}</Text>
-            ) : null}
           </Box>
         </Box>
       )

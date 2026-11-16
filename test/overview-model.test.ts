@@ -2,10 +2,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import { MOCK_SERVICES, mockRecord } from "../src/mock.js"
 import {
-  BAR_MAX,
   FILTER_FULL,
   FILTER_SLIM,
-  barCells,
   filterWidth,
   filterCounts,
   hiddenLine,
@@ -92,25 +90,13 @@ describe("overview filters", () => {
 })
 
 describe("filter column", () => {
-  it("reads in full from 160 columns and collapses below", () => {
-    assert.equal(filterWidth(200), FILTER_FULL)
-    assert.equal(filterWidth(160), FILTER_FULL)
-    assert.equal(filterWidth(159), FILTER_SLIM)
-    assert.equal(filterWidth(120), FILTER_SLIM)
-    assert.equal(FILTER_SLIM, 8)
-    assert.equal(FILTER_FULL, 28)
-  })
-
-  it("sizes each bar to its share of every service", () => {
-    assert.equal(barCells(21, 21, "none"), BAR_MAX)
-    assert.equal(barCells(14, 21, "none"), 5)
-    assert.equal(barCells(3, 21, "trouble"), 1)
-  })
-
-  it("keeps a single service visible and draws nothing for empty or All", () => {
-    assert.equal(barCells(1, 200, "major"), 1)
-    assert.equal(barCells(0, 21, "major"), 0)
-    assert.equal(barCells(21, 21, "all"), 0)
-    assert.equal(barCells(5, 0, "minor"), 0)
+  it("keeps its names from 100 columns and collapses to glyphs below", () => {
+    assert.equal(filterWidth(230), FILTER_FULL)
+    assert.equal(filterWidth(120), FILTER_FULL)
+    assert.equal(filterWidth(100), FILTER_FULL)
+    assert.equal(filterWidth(99), FILTER_SLIM)
+    assert.equal(filterWidth(80), FILTER_SLIM)
+    assert.equal(FILTER_FULL, 20)
+    assert.equal(FILTER_SLIM, 10)
   })
 })

@@ -203,18 +203,14 @@ export const runBreaks = (
 }
 
 // The filter column beside the body. From FILTER_WIDE columns up it reads in
-// full: marker, glyph, name, count and a bar. Below, glyph and count only.
-export const FILTER_WIDE = 160
-export const FILTER_FULL = 28
-export const FILTER_SLIM = 8
-export const BAR_MAX = 7
+// full: marker, glyph, name and count. Below, glyph and count only; the list
+// gives up its preview before the column gives up its names.
+export const FILTER_WIDE = 100
+// The marker's gutter, the glyph, the longest name ("maintenance"), the count
+// and a trailing cell.
+export const FILTER_FULL = 3 + 2 + 11 + 3 + 1
+// Wide enough for the pane title over the glyphs.
+export const FILTER_SLIM = 10
 
 export const filterWidth = (columns: number): number =>
   columns >= FILTER_WIDE ? FILTER_FULL : FILTER_SLIM
-
-// A filter's bar, in cells, against every service. "all" and an empty filter
-// draw none; anything else at least one, so a single outage still shows.
-export const barCells = (count: number, total: number, id: FilterId): number =>
-  id === "all" || count <= 0 || total <= 0
-    ? 0
-    : Math.max(1, Math.min(BAR_MAX, Math.round((count / total) * BAR_MAX)))

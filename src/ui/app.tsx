@@ -440,7 +440,6 @@ export const App = ({
             items={items}
             active={tab}
             focused={onFilters}
-            total={searchCounts.counts.all}
             full={full}
             settled={sorted}
           />
