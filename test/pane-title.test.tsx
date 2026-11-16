@@ -93,6 +93,30 @@ describe("colour roles", () => {
   const ORANGE = "\u001b[38;2;255;140;0m"
   const LAVENDER = "\u001b[38;2;199;146;234m"
 
+  it("keeps orange off the spinner while services are read", async () => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = renderAt(
+      <App source={{ ...mockSource(400), view: "board" }} />,
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        debug: true,
+        patchConsole: false,
+        exitOnCtrlC: false,
+      },
+    )
+    for (let i = 0; i < 120 && !/checking/.test(stdout.frame); i++)
+      await new Promise((r) => setTimeout(r, 25))
+    const frame = stdout.frame
+    app.unmount()
+    assert.match(stripVTControlCharacters(frame), /checking/)
+    for (const c of frame
+      .split(ORANGE)
+      .slice(1)
+      .map((s) => stripVTControlCharacters(s)[0]))
+      assert.match(c, /[◆▔]/, frame)
+  })
+
   for (const view of ["board", "list"] as const)
     it(`${view}: orange only on the brand and the focus underline`, async () => {
       const { stdout, stdin } = terminal(160, 40)

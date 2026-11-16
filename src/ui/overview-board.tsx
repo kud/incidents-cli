@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Box, Text } from "ink"
-import { Spinner, colors } from "@kud/ink-ui"
+import { colors } from "@kud/ink-ui"
 import {
   affected,
   ageText,
@@ -13,6 +13,7 @@ import {
 } from "./overview-model.js"
 import {
   BAND,
+  Busy,
   CURSOR,
   Empty,
   Footer,
@@ -248,7 +249,7 @@ const GridLine = ({
               {label.text}
             </Text>
           ) : (
-            <Spinner label="checking" />
+            <Busy label="checking" />
           )}
           {extra ? (
             <Text color={INK} wrap="truncate-end">

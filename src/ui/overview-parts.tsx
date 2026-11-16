@@ -6,7 +6,7 @@ import {
   type RefObject,
 } from "react"
 import { Box, Text, measureElement, type DOMElement } from "ink"
-import { Spinner, colors } from "@kud/ink-ui"
+import { colors } from "@kud/ink-ui"
 import type { Tone } from "../labels.js"
 import type { Sort } from "../sort.js"
 import { visibleLength } from "../render.js"
@@ -86,7 +86,7 @@ export const StatusCell = ({ row, width }: { row: Row; width: number }) => {
       {row.record ? (
         <Text color={TONE[label.tone]}>{label.text}</Text>
       ) : (
-        <Spinner />
+        <Busy />
       )}
     </Box>
   )
@@ -116,6 +116,31 @@ const shade = (cell: number, frame: number, cells: number, lag: number) => {
   return Math.abs(cell - (phase - LEAD)) <= CREST
     ? colors.trackHighlight
     : colors.track
+}
+
+// A service still being read: a spinner in the same cool tone as the
+// header's "↻ checking…", never the brand's orange, which means nothing
+// but the product. Held still where motion is off.
+const DOTS = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+const DOT_MS = 80
+
+export const Busy = ({ label }: { label?: string }) => {
+  const [frame, setFrame] = useState(0)
+  const live = moving()
+  useEffect(() => {
+    if (!live) return
+    const timer = setInterval(
+      () => setFrame((f) => (f + 1) % DOTS.length),
+      DOT_MS,
+    )
+    return () => clearInterval(timer)
+  }, [live])
+  return (
+    <Text wrap="truncate-end">
+      <Text color={colors.info}>{live ? DOTS[frame] : "◌"}</Text>
+      {label ? <Text color={colors.muted}>{` ${label}`}</Text> : null}
+    </Text>
+  )
 }
 
 export const pendingWidth = (titleW: number, row: number): number =>
