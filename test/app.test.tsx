@@ -324,6 +324,39 @@ describe("page chrome", () => {
       })
 })
 
+describe("search", () => {
+  it("rides on the services title row, so nothing below it moves", async () => {
+    const { stdout, stdin } = terminal(120, 40)
+    const app = renderAt(<App source={{ ...mockSource(2), view: "list" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    const before = (await until(frame, /updated/)).split("\n")
+    const titles = before.findIndex((l) => l.includes("Services"))
+    stdin.press("/")
+    for (const ch of "mail") {
+      await tick(20)
+      stdin.press(ch)
+    }
+    const typed = (await until(frame, /2 of 21/)).split("\n")
+    assert.equal(
+      typed.findIndex((l) => l.includes("Services")),
+      titles,
+    )
+    assert.match(typed[titles], /Services {2}\/ mail▏ {2}2 of 21/)
+    assert.equal(typed[titles - 1].replace(/[│\s]/g, ""), "")
+    assert.doesNotMatch(typed.join("\n"), /\d+ match/)
+    stdin.press("\r")
+    await until(frame, /\/ mail {2}2 of 21/)
+    assert.doesNotMatch(frame(), /▏/)
+    app.unmount()
+  })
+})
+
 describe("footer keys", () => {
   // Six keys at most, quit always last; the counter shares the row with the
   // services pane and hides while the filters have the keys. `q quit` never

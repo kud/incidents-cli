@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Box, useApp, useInput, useWindowSize } from "ink"
-import {
-  FilterBar,
-  colors,
-  useFilterMode,
-  useListCursor,
-  useTabs,
-} from "@kud/ink-ui"
+import { colors, useFilterMode, useListCursor, useTabs } from "@kud/ink-ui"
 import { worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
 import { DetailBody } from "./detail.js"
 import { HelpOverlay } from "./help.js"
+import { SearchField } from "./search.js"
 import { fitHints } from "./fit-hints.js"
 import { FRAME_ROWS, Frame, TEXT_COLUMN, type Hint } from "./frame.js"
 import { overviewSegments, statusSegment } from "./header.js"
@@ -474,16 +469,6 @@ export const App = ({
     >
       {help ? <HelpOverlay indent={TEXT_COLUMN} width={columns} /> : null}
       <Box display={help ? "none" : "flex"} flexDirection="column" flexGrow={1}>
-        {term === null ? null : (
-          <Box paddingLeft={2}>
-            <FilterBar
-              term={term}
-              typing={typing}
-              caret={filterMode.caret}
-              matches={term ? visible.length : undefined}
-            />
-          </Box>
-        )}
         <Box flexDirection="row" flexGrow={1}>
           <Box flexDirection="column" width={filterW} flexShrink={0}>
             <PaneTitle
@@ -509,6 +494,17 @@ export const App = ({
               focused={!onFilters}
               width={bodyW}
               indent={MARK}
+              extra={
+                term === null ? undefined : (
+                  <SearchField
+                    term={term}
+                    typing={typing}
+                    caret={filterMode.caret}
+                    matches={searchCounts.counts.all}
+                    total={rows.length}
+                  />
+                )
+              }
             />
             <Overview
               rows={visible}
