@@ -51,7 +51,24 @@ Node 22 or later.
 | `incidents services`       | One service per line: id, name, aliases (comma-separated), tab-separated |
 | `incidents watch`          | Polls every few minutes and prints one line per status change            |
 
-Keys in the interactive view: `↑↓` or `j k` move, and on the board `←→` move between card columns too, with `←` from the first column stepping into the filters and `→` back; in the list `←→` cycle the status filters (All, Trouble, then one per status). `tab` switches between the filters and the services, `⏎` opens a service, the detail page scrolls its history with `↑↓`, `/` searches names and aliases, `z` folds the operational services into one line, `v` switches between the list and the board, `s` sorts by status (worst first) or by name, `esc` clears a search or goes back, `⌫` goes back, `r` refreshes, `q` quits. The view and the sort are independent: either view works in either order, and the service name leads every row. Whenever a tab, the fold or a search hides services, a line under the list says how many and which key brings them back.
+In the interactive view the arrows mean depth: `←` and `→` move between the filters, the services and a service's page, and `↑↓` (or `j k`) move within the one that has the keys. On the board `←→` also move between cards. `?` shows every key.
+
+| Key                    | Action                                                  |
+| ---------------------- | ------------------------------------------------------- |
+| `↑↓`, `j k`            | Move within the pane that has the keys                  |
+| `←` `→`                | Between the filters, the services and a service's page  |
+| `⏎`                    | Open the service, or the filter                         |
+| `/`                    | Search names and aliases; `esc` clears it               |
+| `v`                    | Switch between the list and the board                   |
+| `o`                    | Open in the browser: the incident, else the status page |
+| `z`                    | Hide or show the ok services                            |
+| `s`                    | Sort by status (worst first) or by name                 |
+| `g` `G`, `PgUp` `PgDn` | First, last, a page at a time                           |
+| `r`                    | Refresh                                                 |
+| `?`                    | Every key                                               |
+| `q`                    | Quit                                                    |
+
+`tab` also switches between the filters and the services. The view and the sort are independent, and the service name leads every row. Whenever a filter, `z` or a search hides services, a line under the list says how many and which key brings them back.
 
 Add `--json` to any form for JSON records. With no TTY on stdin or stdout, or `CI` set, every form falls back to the static output (or JSON), so pipes, `$(...)` and cron never hang.
 
@@ -61,13 +78,13 @@ Add `--json` to any form for JSON records. With no TTY on stdin or stdout, or `C
 | ---- | ----------------------------------------------------------- |
 | 0    | All clear (maintenance and manual-link rows count as clear) |
 | 1    | Something is degraded, or a page could not be read          |
-| 2    | Usage or configuration error                                |
+| 2    | Usage: an unknown service, flag or value, or a bad config   |
 
 The interactive view exits 0 on quit.
 
 ### Watch mode
 
-`incidents watch` polls every service every five minutes (`--interval <minutes>` to change it) and prints a line only when something changes: clear to trouble, trouble to clear, a change of severity (`minor`, `major`, `critical`), or a page becoming unreadable or readable again. An unreadable page counts as trouble. The first poll sets the baseline and reports only what is already in trouble, with `from` set to `null`. It never opens the interactive view; `ctrl-c` stops it and exits 0.
+`incidents watch` polls every service every five minutes (`--interval <minutes>` to change it) and prints a line only when something changes: clear to trouble, trouble to clear, a change of severity (`minor`, `major`, `critical`), or a page becoming unreadable or readable again. An unreadable page counts as trouble. The first poll sets the baseline: as text, one line on stderr (`watching 21 services every 5m · 2 in trouble now`); with `--json` and for `--exec`, each service already in trouble is reported with `from` set to `null`. Text lines are padded into columns and read `old → new`. It never opens the interactive view; `ctrl-c` stops it and exits 0.
 
 ```sh
 incidents watch
@@ -176,7 +193,7 @@ Other fields: `aliases`, `note` (printed under the detail), `timeout` (per servi
 | `historyLoaded` | `true` once history was requested for this record                                                         |
 | `historyFailed` | `true` when the history feed could not be read, so an empty `recent` is not a claim that nothing happened |
 
-`unknown` means the page could not be read. It sorts above every healthy row and fails the exit code.
+`unknown` is the JSON name for what the screen shows as `? unreadable`: the page could not be read. It sorts above every healthy row and fails the exit code.
 
 ## Environment
 
