@@ -375,6 +375,24 @@ describe("first load", () => {
     assert.deepEqual(edges(loading), edges(done), `${loading}\n${done}`)
   })
 
+  it("board: an ok service stays a card until the sort lands", async () => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = render(<App source={{ ...mockSource(120), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    // Sample Registry, third in config order, is ok and answers early.
+    const mid = await until(frame, /Sample Registry\s+● ok/)
+    app.unmount()
+    assert.match(mid, /checking/, mid)
+    assert.doesNotMatch(mid, /ok · z show/, mid)
+    assert.match(mid, /[│┃] Sample Registry\s+● ok [│┃]/, mid)
+  })
+
   it("list: skeleton rows in the list's columns, so nothing shifts", async () => {
     const { loading, done } = await load("list")
     const at = (f: string, re: RegExp) => lineWith(f, "Acme Cloud").search(re)

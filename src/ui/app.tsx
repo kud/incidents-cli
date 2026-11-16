@@ -206,8 +206,12 @@ export const App = ({
   const unfolded = narrow(rows, { filter: tab, folded: false, term })
   const folded =
     ok === "hidden" ||
+    // The board folds only once the sort has landed: while services are
+    // answering every one is a card, and an ok one folding away mid-load
+    // would be the very jump the skeletons are there to prevent.
     (ok === "auto" &&
       view === "board" &&
+      sorted &&
       paneHeight > 0 &&
       !boardFits(
         sorted ? navOrder(view, unfolded.rows) : unfolded.rows,
