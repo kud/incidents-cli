@@ -62,6 +62,7 @@ In the interactive view the arrows mean depth: `←` and `→` move between the 
 | `v`                    | Switch between the list and the board, remembered       |
 | `o`                    | Open in the browser: the incident, else the status page |
 | `z`                    | Hide or show the ok services                            |
+| `p`                    | Pin or unpin the selected service                       |
 | `s`                    | Sort by status (worst first) or by name                 |
 | `g` `G`, `PgUp` `PgDn` | First, last, a page at a time                           |
 | `r`                    | Refresh                                                 |
@@ -123,6 +124,8 @@ view: list # the view to open on: list (default) or board
 sort: status # the order to open on: status, worst first (default), or name
 services:
   github: {} # take the built-in entry as it is
+  claude:
+    pinned: true # always at the top of the overview, always a card
   aws:
     regions: [us-east-1, us-west-2] # override fields of a built-in entry
   npm:
@@ -154,7 +157,7 @@ With no config file the defaults are `github`, `npm`, `cloudflare` and `claude`,
 | `aws`        | AWS Health's public event list; `regions` narrows it, global events always count                         |
 | `link`       | No machine-readable page: the row points at `url` and claims nothing                                     |
 
-Other fields: `aliases`, `note` (printed under the detail), `timeout` (per service, milliseconds).
+Other fields: `aliases`, `note` (printed under the detail), `timeout` (per service, milliseconds), `pinned` (`true` keeps the service at the top of the interactive view, in a Pinned group, always as a card; `p` pins or unpins in the view, and that choice overrides the config until it is changed again).
 
 ## JSON records
 

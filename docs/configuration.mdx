@@ -19,6 +19,8 @@ services:
   github: {} # take the built-in entry as it is
   aws:
     regions: [us-east-1, us-west-2] # override fields of a built-in entry
+  claude:
+    pinned: true # always at the top of the overview, always a card
   npm:
     enabled: false # drop one
   acme:
@@ -43,18 +45,19 @@ Within `services`, a drop-in's fields are merged over the same id's fields from 
 
 ## Service fields
 
-| Field     | Meaning                                                                            |
-| --------- | ---------------------------------------------------------------------------------- |
-| `name`    | Display name; defaults to the id                                                   |
-| `kind`    | `statuspage`, `rss`, `slack`, `aws` or `link`; required for a service not built in |
-| `url`     | The status page; must be `https://` for `statuspage`, `rss` and `link`             |
-| `feed`    | The incident feed URL; required for `rss`                                          |
-| `window`  | For `rss`: hours a post counts as current, default `6`                             |
-| `regions` | For `aws`: the regions to count; global events always count                        |
-| `aliases` | Other words that name the service on the command line and in search                |
-| `note`    | A line printed under the detail                                                    |
-| `timeout` | Milliseconds per request for this service, overriding the global one               |
-| `enabled` | `false` drops the service                                                          |
+| Field     | Meaning                                                                             |
+| --------- | ----------------------------------------------------------------------------------- |
+| `name`    | Display name; defaults to the id                                                    |
+| `kind`    | `statuspage`, `rss`, `slack`, `aws` or `link`; required for a service not built in  |
+| `url`     | The status page; must be `https://` for `statuspage`, `rss` and `link`              |
+| `feed`    | The incident feed URL; required for `rss`                                           |
+| `window`  | For `rss`: hours a post counts as current, default `6`                              |
+| `regions` | For `aws`: the regions to count; global events always count                         |
+| `aliases` | Other words that name the service on the command line and in search                 |
+| `note`    | A line printed under the detail                                                     |
+| `timeout` | Milliseconds per request for this service, overriding the global one                |
+| `enabled` | `false` drops the service                                                           |
+| `pinned`  | `true` keeps the service at the top of the interactive view; `p` there overrides it |
 
 ## Kinds
 

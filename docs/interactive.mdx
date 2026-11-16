@@ -79,6 +79,10 @@ While services are answering, each one stays a card in config order, filled in w
 
 When the cards and the strip do not both fit, the strip folds to one line, `● 9 ok · z show`, before any card is scrolled off. If the cards still overflow, the count of what is off screen sits at the bottom right of the cards.
 
+## Pinned services
+
+`p` pins the selected service, or unpins it. Pinned services sit at the top of both views under a `Pinned` heading, worst status first and then in the order they were pinned, each marked `◆`. On the board a pinned service is always a card, even when it is ok. The `all` and `trouble` filters keep the pinned group whole; a status filter shows a pin only when it matches. `z` never hides one. Pins set with `p` are remembered with the view, in the same state file, and override `pinned` in the [configuration](/projects/incidents-cli/docs/configuration) until changed again.
+
 ## Searching, hiding and sorting
 
 - `/` searches service names and aliases. The search sits on the services title row, `Services  / mail▏  2 of 21`, so nothing below it moves; `⏎` stops typing and `esc` clears it.
@@ -128,6 +132,7 @@ On a wide terminal the two sit side by side, each titled, and History scrolls; o
 | `/`           | Search names and aliases                                |
 | `esc`         | Clear a search, close the keys, or go back              |
 | `z`           | Hide or show the ok services                            |
+| `p`           | Pin or unpin the selected service                       |
 | `v`           | Switch between the board and the list                   |
 | `s`           | Sort by status or by name                               |
 | `o`           | Open in the browser: the incident, else the status page |
