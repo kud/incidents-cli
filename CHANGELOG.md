@@ -4,6 +4,14 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.6.1 — 2026-11-16
+
+### Highlights
+
+- The TUI now remembers your last view (board or list) between runs, and the config's `view:` applies until you press `v` once; delete `${XDG_STATE_HOME:-~/.local/state}/incidents/state.json` to reset. `--mock`, one-shot and `--json` never touch it. ([1889371](https://github.com/kud/incidents-cli/commit/1889371397475f0af0b44bbd5f765756cc476a87))
+
+---
+
 ## 0.6.0 — 2026-11-16
 
 ### Highlights
