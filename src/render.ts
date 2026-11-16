@@ -28,6 +28,11 @@ export const stripEscapes = (s: string): string =>
 
 export const visibleLength = (s: string): number => [...stripEscapes(s)].length
 
+// An OSC 8 hyperlink: terminals that know it make `text` clickable, the rest
+// print `text` alone.
+export const hyperlink = (url: string, text: string): string =>
+  url ? `\u001B]8;;${url}\u001B\\${text}\u001B]8;;\u001B\\` : text
+
 const pad = (s: string, width: number): string =>
   s + " ".repeat(Math.max(0, width - visibleLength(s)))
 
@@ -45,8 +50,7 @@ const styler = ({ color, links }: Pick<RenderOptions, "color" | "links">) => {
     tone: (text: string, tone: Tone) => chalk.hex(toneColour[tone])(text),
     muted: (text: string) => chalk.hex(colors.muted)(text),
     bold: (text: string) => chalk.bold(text),
-    link: (text: string, url: string) =>
-      links && url ? `\u001B]8;;${url}\u001B\\${text}\u001B]8;;\u001B\\` : text,
+    link: (text: string, url: string) => (links ? hyperlink(url, text) : text),
   }
 }
 

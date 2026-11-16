@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from "react"
 import { Box, Text } from "ink"
 import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
+import { hyperlink } from "../render.js"
 import type { Tone } from "../labels.js"
 import {
   ageText,
@@ -185,7 +186,7 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
     lines.push(<Text key="b2"> </Text>)
     lines.push(
       <Text key="u" color={colors.link} wrap="truncate-end">
-        {r.url.replace(/^https?:\/\//, "")}
+        {hyperlink(r.url, r.url.replace(/^https?:\/\//, ""))}
       </Text>,
     )
     lines.push(

@@ -4,6 +4,7 @@ import { colors, useFilterMode, useListCursor, useTabs } from "@kud/ink-ui"
 import { worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
+import { linkTarget, openInBrowser, type Opener } from "../open-url.js"
 import { DetailBody } from "./detail.js"
 import { HelpOverlay } from "./help.js"
 import { SearchField } from "./search.js"
@@ -80,9 +81,12 @@ const filterItems = (counts: Record<FilterId, number>): FilterItem[] =>
 export const App = ({
   source,
   initialDetail,
+  openUrl = openInBrowser,
 }: {
   source: Source
   initialDetail?: string
+  // How `o` reaches the browser; tests pass their own.
+  openUrl?: Opener
 }) => {
   const { columns, rows: height } = useWindowSize()
   const [records, setRecords] = useState<Record<string, ServiceRecord>>({})
@@ -280,6 +284,13 @@ export const App = ({
     if (input === "q") return exit()
     if (input === "?") return setHelp(true)
     if (input === "r") return detailId ? loadDetail(detailId) : load()
+    if (input === "o") {
+      const id = detailId ?? visible[cursor]?.service.id
+      const service = source.services.find((s) => s.id === id)
+      const url = service && linkTarget(service, records[service.id])
+      if (url) openUrl(url)
+      return
+    }
     if (!atRoot) {
       if (key.leftArrow || key.escape || key.backspace || key.delete)
         closeDetail()
@@ -383,6 +394,7 @@ export const App = ({
             ? helpHints
             : [
                 ["↑↓", "scroll"],
+                ["o", "browser"],
                 ["←", "back"],
                 ["?", "keys"],
                 ["q", "quit"],

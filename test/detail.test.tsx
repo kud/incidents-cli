@@ -2,13 +2,15 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { StyledLine } from "@kud/ink-ui"
 import type { ServiceRecord } from "../src/core/index.js"
+import { stripEscapes } from "../src/render.js"
 import { historyLines, sectionsLines } from "../src/ui/detail.js"
 
 const ago = (hours: number): string =>
   new Date(Date.now() - hours * 3_600_000).toISOString()
 
+// What the line reads as: hyperlinks are escapes around their text.
 const text = (line: StyledLine): string =>
-  line.spans ? line.spans.map((s) => s.text).join("") : line.text
+  stripEscapes(line.spans ? line.spans.map((s) => s.text).join("") : line.text)
 
 // A busy page: two open incidents, four hit components and 24 past incidents
 // spread over two months, the shape that made the old flat list unreadable.

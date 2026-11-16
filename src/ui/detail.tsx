@@ -3,7 +3,7 @@ import { Box, Text, useInput } from "ink"
 import { colors, type Span, type StyledLine } from "@kud/ink-ui"
 import { ageOf, type ServiceRecord } from "../core/index.js"
 import { statusLabel, wordLabel, type Label, type Tone } from "../labels.js"
-import { visibleLength } from "../render.js"
+import { hyperlink, visibleLength } from "../render.js"
 import { PaneTitle, Rule } from "./filter-column.js"
 import { INK, Pending, pendingWidth } from "./overview-parts.js"
 
@@ -176,7 +176,7 @@ const headline = (record: ServiceRecord): StyledLine[] => {
       spans: [
         { text: " ".repeat(EDGE) },
         {
-          text: record.url.replace(/^https?:\/\//, ""),
+          text: hyperlink(record.url, record.url.replace(/^https?:\/\//, "")),
           color: colors.link,
         },
       ],

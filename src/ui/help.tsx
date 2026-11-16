@@ -37,6 +37,7 @@ export const KEY_GROUPS: KeyGroup[] = [
   {
     title: "Page",
     keys: [
+      ["o", "open in the browser: the incident, else the status page"],
       ["r", "refresh"],
       ["←  esc", "back"],
       ["?", "these keys"],
