@@ -1,11 +1,11 @@
 import { fuzzyFilter } from "@kud/ink-ui"
 import {
-  ageOf,
   type Indicator,
   type Service,
   type ServiceRecord,
 } from "../core/index.js"
 import { statusLabel, type Label } from "../labels.js"
+export { ageText, headline, startedAt } from "../summary.js"
 
 export type Row = { service: Service; record?: ServiceRecord }
 
@@ -186,31 +186,6 @@ export const boardGroups = (
     strip: rows.filter((r) => !isCard(r) && !isManual(r)),
     manual: rows.filter((r) => !isCard(r) && isManual(r)),
   }
-}
-
-const startOf = (r: ServiceRecord): string | undefined =>
-  r.active[0]?.date ??
-  (r.kind === "rss" && r.indicator !== "none" ? r.recent[0]?.date : undefined)
-
-export const startedAt = (r?: ServiceRecord): string | undefined =>
-  r ? startOf(r) : undefined
-
-// How long the trouble has run, bare: "1h 12m". Every row and card says a
-// duration the same way; only the detail's "started" line adds the clock.
-export const ageText = (r?: ServiceRecord): string => {
-  const start = startedAt(r)
-  return start ? ageOf(start) : ""
-}
-
-export const headline = (r?: ServiceRecord): string => {
-  if (!r) return ""
-  if (r.indicator === "link") return "no feed, open the page"
-  if (r.active[0]) return r.active[0].title
-  if (r.indicator === "none")
-    return r.kind === "rss"
-      ? `quiet · ${r.description.charAt(0).toLowerCase()}${r.description.slice(1)}`
-      : ""
-  return r.description.replace(/^Posted [^:]+: /, "")
 }
 
 export const affected = (r?: ServiceRecord): string[] =>

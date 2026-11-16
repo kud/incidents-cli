@@ -30,6 +30,16 @@ const WORDS: Record<string, Label> = {
   degraded_performance: { text: "degraded", tone: "warning" },
 }
 
+// A status word with its glyph, as every status reads on screen, so none
+// rests on colour alone: ◌ for planned work, ● for the rest.
+export const withGlyph = (label: Label): Label =>
+  /^[●◌?↗] /.test(label.text)
+    ? label
+    : {
+        ...label,
+        text: `${label.text === "maintenance" ? "◌" : "●"} ${label.text}`,
+      }
+
 export const wordLabel = (status: string | undefined): Label =>
   WORDS[status ?? ""] ?? { text: "active", tone: "warning" }
 

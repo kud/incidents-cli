@@ -5,6 +5,7 @@ import { ageOf, type ServiceRecord } from "../core/index.js"
 import {
   DISCLAIMER,
   statusLabel,
+  withGlyph,
   wordLabel,
   type Label,
   type Tone,
@@ -48,17 +49,8 @@ const padStart = (text: string, width: number): string =>
   " ".repeat(Math.max(0, width - visibleLength(text))) + text
 const widest = (cells: string[]): number =>
   Math.max(0, ...cells.map(visibleLength))
-// Every status word on the page carries its glyph, as the overview's do, so
-// none of them rests on colour alone: ◌ for planned work, ● for the rest.
-const glyphed = (label: Label): Label =>
-  /^[●◌?↗] /.test(label.text)
-    ? label
-    : {
-        ...label,
-        text: `${label.text === "maintenance" ? "◌" : "●"} ${label.text}`,
-      }
 const tone = (label: Label): Cell => ({
-  text: glyphed(label).text,
+  text: withGlyph(label).text,
   color: TONE[label.tone],
 })
 // When an open incident started, and for how long, in the one vocabulary
@@ -260,7 +252,7 @@ const summary = (sorted: { status: string }[]): StyledLine => {
   ]
   for (const [status, n] of counts) {
     const label = wordLabel(status)
-    const [glyph, ...word] = glyphed(label).text.split(" ")
+    const [glyph, ...word] = withGlyph(label).text.split(" ")
     spans.push(
       { text: "  " },
       { text: `${glyph} ${n} ${word.join(" ")}`, color: TONE[label.tone] },
@@ -326,8 +318,8 @@ const nowLines = (
 const sizes = (record: ServiceRecord) => {
   const { broken } = split(record)
   const leadWidth = widest([
-    ...broken.map((c) => glyphed(wordLabel(c.status)).text),
-    ...record.active.map((i) => glyphed(wordLabel(i.impact)).text),
+    ...broken.map((c) => withGlyph(wordLabel(c.status)).text),
+    ...record.active.map((i) => withGlyph(wordLabel(i.impact)).text),
   ])
   const tailWidth = widest(record.active.map((i) => started(i.date)))
   return { leadWidth, tailWidth }
