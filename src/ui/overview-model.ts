@@ -174,12 +174,14 @@ export const navOrder = (view: View, rows: Row[]): Row[] => {
 // The board's three groups, in the order it draws them: a card for each
 // service worth reading in full, the strip of the rest, then the manual pages,
 // which claim nothing, in a group of their own at the end. Until the sort
-// lands everything sits in the strip, so nothing jumps service by service.
+// lands every service is a card, a skeleton until it answers, so the first
+// load already has the board's grid; the move into cards and the strip
+// happens in one step once every service has answered.
 export const boardGroups = (
   rows: Row[],
   sorted: boolean,
 ): { cards: Row[]; strip: Row[]; manual: Row[] } => {
-  if (!sorted) return { cards: [], strip: rows, manual: [] }
+  if (!sorted) return { cards: rows, strip: [], manual: [] }
   const isManual = (r: Row) => r.record?.indicator === "link"
   return {
     cards: rows.filter(isCard),

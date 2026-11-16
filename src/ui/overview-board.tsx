@@ -22,6 +22,8 @@ import {
   INK,
   MARK,
   Marker,
+  Pending,
+  pendingWidth,
   SOFT,
   TONE,
   useMeasuredHeight,
@@ -72,23 +74,38 @@ const Tile = ({
           </Text>
         </Box>
         <Box flexShrink={0}>
-          <Text color={TONE[label.tone]}>{label.text}</Text>
+          {row.record ? (
+            <Text color={TONE[label.tone]}>{label.text}</Text>
+          ) : (
+            <Busy label="checking" />
+          )}
         </Box>
       </Box>
       <Text> </Text>
-      <Text color={INK} wrap="truncate-end">
-        {headline(row.record)}
-      </Text>
-      <Box width={inner} gap={GAP}>
-        <Box flexGrow={1} flexShrink={1}>
+      {row.record ? (
+        <>
           <Text color={INK} wrap="truncate-end">
-            {affected(row.record).join(", ") || " "}
+            {headline(row.record)}
           </Text>
-        </Box>
-        <Box flexShrink={0}>
-          <Text color={colors.muted}>{ageText(row.record)}</Text>
-        </Box>
-      </Box>
+          <Box width={inner} gap={GAP}>
+            <Box flexGrow={1} flexShrink={1}>
+              <Text color={INK} wrap="truncate-end">
+                {affected(row.record).join(", ") || " "}
+              </Text>
+            </Box>
+            <Box flexShrink={0}>
+              <Text color={colors.muted}>{ageText(row.record)}</Text>
+            </Box>
+          </Box>
+        </>
+      ) : (
+        // A card still being read: its name is known, the rest shimmers
+        // where the headline and the components will land.
+        <>
+          <Pending width={pendingWidth(inner, 0)} />
+          <Pending width={pendingWidth(Math.floor(inner / 2), 1)} />
+        </>
+      )}
     </Box>
   )
 }

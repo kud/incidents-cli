@@ -193,7 +193,7 @@ describe("interactive view", () => {
 
   it("starts alphabetical when the source asks for it", async () => {
     const { lastFrame, unmount } = render(
-      <App source={{ ...mockSource(2), sort: "name" }} />,
+      <App source={{ ...mockSource(2), sort: "name", view: "list" }} />,
     )
     const frame = lastFrame() ?? ""
     assert.ok(frame.indexOf("Acme Cloud") < frame.indexOf("Brightgate Auth"))

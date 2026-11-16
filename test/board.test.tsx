@@ -327,10 +327,12 @@ describe("board paging", () => {
   })
 })
 
-describe("grid while loading", () => {
-  it("cuts a long name with an ellipsis rather than wrapping it", async () => {
-    const { stdout, stdin } = terminal(120, 40)
-    const app = render(<App source={{ ...mockSource(400), view: "board" }} />, {
+describe("first load", () => {
+  // The skeleton has the shape of what replaces it: cards in the board's
+  // grid on the board, rows in the list's columns in the list.
+  const load = async (view: "board" | "list") => {
+    const { stdout, stdin } = terminal(160, 40)
+    const app = render(<App source={{ ...mockSource(300), view }} />, {
       stdout: stdout as unknown as NodeJS.WriteStream,
       stdin: stdin as unknown as NodeJS.ReadStream,
       debug: true,
@@ -338,18 +340,32 @@ describe("grid while loading", () => {
       exitOnCtrlC: false,
     })
     const frame = () => stripVTControlCharacters(stdout.frame)
-    await until(frame, /checking/)
-    await tick(1500)
-    const out = frame()
+    const loading = await until(frame, /checking/)
+    const done = await until(frame, /updated/)
     app.unmount()
-    // Every name a line holds starts it: no name's second word on its own.
-    for (const name of NAMES.filter((n) => n.includes(" "))) {
-      const [, rest] = name.split(" ")
-      const alone = out
-        .split("\n")
-        .some((l) => new RegExp(`│\\s+${rest}\\s`).test(l) && !l.includes(name))
-      assert.ok(!alone, `${name} wrapped\n${out}`)
-    }
+    return { loading, done }
+  }
+  const lineWith = (frame: string, text: string) =>
+    frame.split("\n").find((l) => l.includes(text)) ?? ""
+
+  it("board: skeleton cards in the real grid, same tile and gutters", async () => {
+    const { loading, done } = await load("board")
+    // A card per service, its name known, a shimmer for what it will say.
+    assert.match(loading, /[┃│] Acme Cloud\s+◌ checking [┃│]/, loading)
+    assert.match(loading, /▀/)
+    assert.doesNotMatch(loading, /◌ checking\s+\S+ {2,}◌ checking/)
+    // The top edges of the first card line sit where the real ones land.
+    const edges = (f: string) =>
+      [...lineWith(f, "┏")].flatMap((c, i) => (/[┏┓╭╮]/.test(c) ? [i] : []))
+    assert.deepEqual(edges(loading), edges(done), `${loading}\n${done}`)
+  })
+
+  it("list: skeleton rows in the list's columns, so nothing shifts", async () => {
+    const { loading, done } = await load("list")
+    const at = (f: string, re: RegExp) => lineWith(f, "Acme Cloud").search(re)
+    assert.ok(at(loading, /▀/) > 0, loading)
+    assert.equal(at(loading, /▀/), at(done, /Elevated/), `${loading}\n${done}`)
+    assert.equal(at(loading, /◌/), at(done, /● major/))
   })
 })
 

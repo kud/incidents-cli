@@ -2,7 +2,7 @@ import { useRef, type ReactNode } from "react"
 import { Box, Text } from "ink"
 import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
-import { DISCLAIMER } from "../labels.js"
+import { DISCLAIMER, statusLabel } from "../labels.js"
 import { hyperlink } from "../render.js"
 import type { Tone } from "../labels.js"
 import {
@@ -39,6 +39,13 @@ export const PREVIEW_MIN = 110
 // preview's lines running out to the frame.
 const PREVIEW_ROOM = 90
 const DIVIDER = 4
+const STATUS_W = widest(
+  ["critical", "major", "unknown", "minor", "maintenance", "none", "link"].map(
+    (i) => statusLabel(i).text,
+  ),
+)
+// The widest age the clock gives: "9h 59m".
+const AGE_W = 6
 
 const componentWord = (
   status: string,
@@ -235,8 +242,11 @@ export const ListOverview = ({
   // name and age hold still as the tab, search or fold changes.
   const nameW = widest(all.map((r) => r.service.name))
   // The status reads as glyph and word, so it never rests on colour alone.
-  const statusW = widest(all.map((r) => labelOf(r).text))
-  const ageW = widest(all.map((r) => ageText(r.record)))
+  // Status and age are sized on every value they can hold, not the ones on
+  // screen, so the columns are the same while services are still answering
+  // as after: the skeleton rows sit where the rows land.
+  const statusW = STATUS_W
+  const ageW = Math.max(AGE_W, widest(all.map((r) => ageText(r.record))))
   // The split comes from the terminal alone: fitted to the titles, it moved
   // as each service answered and again on every tab.
   const left = preview
@@ -283,7 +293,10 @@ export const ListOverview = ({
               </Box>
             </>
           ) : (
-            <Pending row={i} width={pendingWidth(titleW, i)} />
+            <>
+              {ageW ? <Text>{" ".repeat(ageW + GAP)}</Text> : null}
+              <Pending row={i} width={pendingWidth(titleW, i)} />
+            </>
           )}
         </Box>
       ),
