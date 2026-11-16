@@ -70,9 +70,12 @@ describe("list overview", () => {
       await tick(20)
       stdin.press(ch)
     }
-    const empty = await until(frame, /Nothing in all right now/)
-    const line = empty.split("\n").find((l) => l.includes("Nothing in all"))!
+    const empty = await until(frame, /No match for "zzzz"/)
+    const line = empty.split("\n").find((l) => l.includes("No match for"))!
     assert.equal(dividerAt(line), width, empty)
+    // One line, never stacked on the hidden counts.
+    assert.match(line, /No match for "zzzz" · esc clears search/)
+    assert.doesNotMatch(empty, /not matching/)
     app.unmount()
   })
 

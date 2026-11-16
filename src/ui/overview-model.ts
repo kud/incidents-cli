@@ -128,22 +128,36 @@ export const hiddenParts = (
   return [
     hidden.folded
       ? {
-          text: `${hidden.folded} operational hidden`,
+          text: `${hidden.folded} ok hidden`,
           key: "z",
-          action: "show",
+          action: "show ok",
         }
       : null,
     hidden.tab
-      ? { text: `${hidden.tab} outside ${name}`, key: "tab", action: "filters" }
+      ? { text: `${hidden.tab} outside ${name}`, key: "←", action: "filters" }
       : null,
     hidden.search
       ? {
-          text: `${hidden.search} not matching “${term ?? ""}”`,
+          text: `${hidden.search} not matching "${term ?? ""}"`,
           key: "esc",
-          action: "clear",
+          action: "clear search",
         }
       : null,
   ].filter((p): p is HiddenPart => p !== null)
+}
+
+// The one line an empty pane shows: the narrowest constraint that emptied
+// it and the key that undoes it. The fold is the last step, so it is named
+// first; then the search, the quickest to undo; then the filter alone.
+export const emptyLine = (
+  hidden: Narrowed["hidden"],
+  { filter, term }: { filter: FilterId; term: string | null },
+): string => {
+  const name = FILTERS.find((f) => f.id === filter)?.name ?? filter
+  if (hidden.folded) return `All ${hidden.folded} ok hidden · z show ok`
+  if (term?.trim())
+    return `No match for "${term}"${filter === "all" ? "" : ` in ${name}`} · esc clears search`
+  return `Nothing in ${name} right now · ← filters`
 }
 
 export const hiddenLine = (parts: HiddenPart[]): string =>

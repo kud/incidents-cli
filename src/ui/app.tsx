@@ -22,6 +22,7 @@ import {
   FILTER_FULL,
   glyphOf,
   filterWidth,
+  emptyLine,
   hiddenParts,
   narrow,
   navOrder,
@@ -190,11 +191,12 @@ export const App = ({
   const narrowed = narrow(rows, { filter: tab, folded, term })
   // Until the sort lands the board has no cards yet, so the walk is the grid.
   const visible = sorted ? navOrder(view, narrowed.rows) : narrowed.rows
-  // An empty filter says so on its own line; the "outside" count would only
-  // repeat it.
-  const hidden = hiddenParts(narrowed.hidden, { filter: tab, term }).filter(
-    (p) => visible.length || p.key !== "tab",
-  )
+  // An empty pane says why on one line of its own, never stacked on the
+  // hidden counts that would only repeat it.
+  const hidden = visible.length
+    ? hiddenParts(narrowed.hidden, { filter: tab, term })
+    : []
+  const empty = emptyLine(narrowed.hidden, { filter: tab, term })
 
   // The app moves the cursor itself, so the hook only holds it.
   const { cursor, setCursor } = useListCursor(visible.length, {
@@ -516,7 +518,7 @@ export const App = ({
               note={source.note}
               width={bodyW}
               focused={!onFilters}
-              empty={`Nothing in ${filterName} right now · ← filters`}
+              empty={empty}
             />
           </Box>
         </Box>

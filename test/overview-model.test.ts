@@ -5,6 +5,7 @@ import {
   FILTER_FULL,
   FILTER_SLIM,
   filterWidth,
+  emptyLine,
   filterCounts,
   hiddenLine,
   hiddenParts,
@@ -12,6 +13,7 @@ import {
   navOrder,
   runBreaks,
   searchRows,
+  type FilterId,
   type Row,
 } from "../src/ui/overview-model.js"
 
@@ -48,14 +50,34 @@ describe("overview filters", () => {
     assert.deepEqual(n.hidden, { search: 0, tab: 11, folded: 0 })
     assert.equal(
       hiddenLine(hiddenParts(n.hidden, { filter: "trouble", term: null })),
-      "11 outside trouble · tab filters",
+      "11 outside trouble · ← filters",
     )
     const folded = narrow(rows, { filter: "all", folded: true, term: null })
     assert.equal(folded.rows.length, 12)
     assert.equal(
       hiddenLine(hiddenParts(folded.hidden, { filter: "all", term: null })),
-      "9 operational hidden · z show",
+      "9 ok hidden · z show ok",
     )
+  })
+
+  it("names the one constraint that emptied a pane, and its undo key", () => {
+    const at = (filter: FilterId, term: string | null, folded = false) =>
+      emptyLine(narrow(rows, { filter, folded, term }).hidden, { filter, term })
+    assert.equal(
+      at("major", "zzz"),
+      'No match for "zzz" in major · esc clears search',
+    )
+    assert.equal(at("all", "zzz"), 'No match for "zzz" · esc clears search')
+    // The search matched, but nothing it matched is in the filter.
+    assert.equal(
+      at("major", "mossline"),
+      'No match for "mossline" in major · esc clears search',
+    )
+    assert.equal(
+      at("unknown", null).replace("unreadable", "X"),
+      "Nothing in X right now · ← filters",
+    )
+    assert.equal(at("none", null, true), "All 9 ok hidden · z show ok")
   })
 
   it("says nothing when nothing is hidden", () => {
@@ -72,7 +94,7 @@ describe("overview filters", () => {
     assert.equal(n.counts.none, 0)
     assert.equal(
       hiddenLine(hiddenParts(n.hidden, { filter: "all", term: "kettle" })),
-      "20 not matching “kettle” · esc clear",
+      '20 not matching "kettle" · esc clear search',
     )
   })
 
