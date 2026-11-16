@@ -91,7 +91,9 @@ describe("filter list", () => {
 
 describe("colour roles", () => {
   const ORANGE = "\u001b[38;2;255;140;0m"
-  const LAVENDER = "\u001b[38;2;199;146;234m"
+  const RED = "\u001b[38;2;255;83;100m"
+  const MUTED_AMBER = "\u001b[38;2;143;105;23m"
+  const BAND = "\u001b[48;2;34;34;50m"
 
   it("keeps orange off the spinner while services are read", async () => {
     const { stdout, stdin } = terminal(160, 40)
@@ -138,8 +140,41 @@ describe("colour roles", () => {
       assert.ok(after.length > 0, frame)
       for (const c of after) assert.match(c, /[◆▔]/, frame)
       assert.ok(
-        frame.includes(view === "board" ? `${LAVENDER}┏` : `${LAVENDER}❯`),
+        view === "board"
+          ? // The selected card (Acme Cloud, major) in full red, the rest
+            // in muted versions of their own hues.
+            frame.includes(`${RED}┏`) && frame.includes(`${MUTED_AMBER}╭`)
+          : // A row: the bright foreground, bold, on the faintest band.
+            frame.includes(`\u001b[1m${BAND}❯`),
         frame,
       )
     })
+})
+
+describe("selection without colour", () => {
+  it("under NO_COLOR, the selected card's title is drawn in inverse", async () => {
+    process.env.NO_COLOR = "1"
+    try {
+      const { stdout, stdin } = terminal(160, 40)
+      const app = renderAt(
+        <App source={{ ...mockSource(2), view: "board" }} />,
+        {
+          stdout: stdout as unknown as NodeJS.WriteStream,
+          stdin: stdin as unknown as NodeJS.ReadStream,
+          debug: true,
+          patchConsole: false,
+          exitOnCtrlC: false,
+        },
+      )
+      for (let i = 0; i < 120 && !/updated/.test(stdout.frame); i++)
+        await new Promise((r) => setTimeout(r, 25))
+      const frame = stdout.frame
+      app.unmount()
+      const inverted = frame.split("\u001b[7m").slice(1)
+      assert.equal(inverted.length, 1, frame)
+      assert.match(stripVTControlCharacters(inverted[0]), /^Acme Cloud/)
+    } finally {
+      delete process.env.NO_COLOR
+    }
+  })
 })

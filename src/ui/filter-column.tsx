@@ -112,7 +112,7 @@ export const FilterList = ({
         <Box key={item.id} flexDirection="column" flexShrink={0}>
           {breakBefore(i, items.length) ? <Text> </Text> : null}
           <Box backgroundColor={on && focused ? BAND : undefined}>
-            <Text color={focused ? CURSOR : colors.muted}>
+            <Text color={focused ? CURSOR : colors.muted} bold={focused}>
               {on ? " ❯ " : "   "}
             </Text>
             <Text color={item.color}>{pad(item.glyph, GLYPH_W)}</Text>

@@ -29,12 +29,12 @@ export const TONE: Record<Tone, string> = {
 // theme as well as a dark one: a fixed near-white vanished on a light ground.
 // The cost is a theme with a custom "bold colour", whose bold names take it.
 export const INK: string | undefined = undefined
-export const SOFT = colors.secondary
-export const BAND = colors.selection
-// What the cursor is on: the marker and a card's border take lavender, the
-// row the band. Orange is the brand's alone, warm hues the statuses', so
-// nothing reads a selection as an alert.
-export const CURSOR = colors.group
+// Selection is brightness, never a hue: warm hues are the statuses' and
+// orange the brand's. A row is selected by the marker in the bright
+// foreground on the faintest band, a step above the ground; a card by full
+// colour against the muted rest (see the board).
+export const BAND = "#222232"
+export const CURSOR: string | undefined = INK
 export const FRAME_SIDES = 4
 export const GAP = 2
 // The selection gutter: the marker, then a space. It is as wide as a card's
@@ -74,7 +74,9 @@ export const Marker = ({
   active: boolean
   focused?: boolean
 }) => (
-  <Text color={focused ? CURSOR : colors.muted}>{active ? "❯ " : "  "}</Text>
+  <Text color={focused ? CURSOR : colors.muted} bold={focused}>
+    {active ? "❯ " : "  "}
+  </Text>
 )
 
 // The status cell: glyph and word in the tone's colour, so the status never
