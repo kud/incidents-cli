@@ -75,7 +75,7 @@ The list shows every service, worst first, one per row: the name, the status, ho
 
 The board is a card for each service in trouble or in maintenance, then a strip of the ok services, then the manual pages in a group of their own. On the board `←→` and `↑↓` move between cards and down the strip; `←` from the first column steps into the filters, and `→` comes back. `⏎` opens a service.
 
-While services are answering, each one is a card in config order. An ok one collapses to its line where it stands as it answers, and once every service has answered, one short step moves the lines into the strip and sorts the cards. Showing or hiding the ok strip and changing the filter take the same short step. No transition runs longer than about 200ms, a key press lands on the final state at once, and there is no motion at all without a terminal, or with `NO_COLOR`, `NO_MOTION`, `CI` or `TERM=dumb` set.
+While services are answering, each one stays a card in config order, filled in where it stands as it answers. Once every service has answered, the board fades out while the ok cards close to lines, and fades back in sorted, with the lines in the strip. Rows that move on a filter change fade the same way, in the list as well as on the board, and showing or hiding the ok strip folds it in a short step. No transition runs longer than about 300ms, a key press lands on the final state at once, and there is no motion at all without a terminal, or with `NO_COLOR`, `NO_MOTION`, `CI` or `TERM=dumb` set.
 
 When the cards and the strip do not both fit, the strip folds to one line, `● 9 ok · z show`, before any card is scrolled off. If the cards still overflow, the count of what is off screen sits at the bottom right of the cards.
 

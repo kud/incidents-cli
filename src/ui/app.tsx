@@ -335,26 +335,25 @@ export const App = ({
         (l) => l.first >= cards && l.first < cards + strip,
       ).length
     }
-    const frames =
-      !animate || !onBoard
-        ? []
-        : seen.sorted !== sorted
-          ? sorted
-            ? settleFrames(
-                before,
-                visible,
-                onBoard ? before.filter((r) => isLine(r.record)) : [],
-              )
-            : []
-          : !sorted
-            ? []
-            : seen.tab !== tab
-              ? filterFrames(before, visible, onBoard ? isCard : () => false)
-              : !onBoard
-                ? []
-                : folded
-                  ? stripFrames(before, stripLines(before), true)
-                  : stripFrames(visible, stripLines(visible), false)
+    const frames = !animate
+      ? []
+      : seen.sorted !== sorted
+        ? sorted
+          ? settleFrames(
+              before,
+              visible,
+              onBoard ? before.filter((r) => isLine(r.record)) : [],
+            )
+          : []
+        : !sorted
+          ? []
+          : seen.tab !== tab
+            ? filterFrames(before, visible, onBoard ? isCard : () => false)
+            : !onBoard
+              ? []
+              : folded
+                ? stripFrames(before, stripLines(before), true)
+                : stripFrames(visible, stripLines(visible), false)
     setPlay(frames.length ? { frames, at: 0 } : null)
   }
   useEffect(() => {

@@ -81,13 +81,19 @@ export const Marker = ({
 
 // The status cell: glyph and word in the tone's colour, so the status never
 // rests on colour alone, or the spinner while the service has not answered.
-export const StatusCell = ({ row, width }: { row: Row; width: number }) => {
-  return (
-    <Box width={width} flexShrink={0}>
-      {row.record ? <StatusTag row={row} /> : <Busy />}
-    </Box>
-  )
-}
+export const StatusCell = ({
+  row,
+  width,
+  faded = false,
+}: {
+  row: Row
+  width: number
+  faded?: boolean
+}) => (
+  <Box width={width} flexShrink={0}>
+    {row.record ? <StatusTag row={row} faded={faded} /> : <Busy />}
+  </Box>
+)
 
 // A placeholder for a row that has not answered: a half-height bar, so a
 // column of them reads as lines of text rather than one solid slab. Each row

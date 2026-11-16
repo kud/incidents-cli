@@ -232,6 +232,7 @@ export const ListOverview = ({
   width,
   focused,
   empty,
+  motion,
 }: OverviewProps) => {
   const [ref, height] = useMeasuredHeight()
   const top = useRef(0)
@@ -264,6 +265,8 @@ export const ListOverview = ({
     if (breaks.has(i)) lines.push({ key: `gap-${i}`, node: <Text> </Text> })
     const active = i === cursor
     const r = row.record
+    // Drawn dim while it leaves or arrives in a transition.
+    const faded = Boolean(motion?.faded?.[row.service.id])
     lines.push({
       key: row.service.id,
       holds: i,
@@ -273,20 +276,20 @@ export const ListOverview = ({
           backgroundColor={active && focused ? BAND : undefined}
         >
           <Marker active={active} focused={focused} />
-          <Text color={INK} bold>
+          <Text color={INK} bold dimColor={faded}>
             {pad(row.service.name, nameW + GAP)}
           </Text>
-          <StatusCell row={row} width={statusW + GAP} />
+          <StatusCell row={row} width={statusW + GAP} faded={faded} />
           {r ? (
             <>
               {ageW ? (
-                <Text color={colors.muted}>
+                <Text color={colors.muted} dimColor={faded}>
                   {ageText(r).padStart(ageW)}
                   {"  "}
                 </Text>
               ) : null}
               <Box width={titleW} flexShrink={0}>
-                <Text color={INK} wrap="truncate-end">
+                <Text color={INK} dimColor={faded} wrap="truncate-end">
                   {headline(r) || " "}
                 </Text>
               </Box>

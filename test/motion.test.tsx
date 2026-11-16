@@ -185,4 +185,19 @@ describe("first load, moving", () => {
     assert.match(after, asLine, after)
     assert.doesNotMatch(after, asCard)
   })
+
+  it("the list fades a filter change instead of jumping", async () => {
+    const { app, stdin, frame } = open("list")
+    await until(frame, /updated/)
+    await tick(400)
+    stdin.press("\x1b[D")
+    await tick(30)
+    stdin.press("\x1b[B")
+    await tick(20)
+    // The old rows stay on screen, dimmed, for the first frames.
+    assert.match(frame(), /Harbour CI/)
+    await tick(400)
+    assert.doesNotMatch(frame(), /Harbour CI/)
+    app.unmount()
+  })
 })
