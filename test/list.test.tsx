@@ -317,12 +317,12 @@ describe("list preview", () => {
     assert.doesNotMatch(done, /Declared status only/)
     // The list side of the selected line: the preview shares the row.
     const row = (f: string) => bodyOf(selectedLine(f)).split("│")[0]
-    for (let i = 0; i < 30 && !/● ok/.test(row(frame())); i++) {
+    for (let i = 0; i < 30 && !/\uE0B6ok\uE0B4/.test(row(frame())); i++) {
       stdin.press(DOWN)
       await tick(30)
     }
     const ok = await until(frame, /Declared status only/)
-    assert.match(row(ok), /● ok/)
+    assert.match(row(ok), /\uE0B6ok\uE0B4/)
     assert.equal(ok.split("Declared status only").length, 2, ok)
     app.unmount()
   })

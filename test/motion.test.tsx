@@ -136,8 +136,8 @@ describe("first load, moving", () => {
     return frame()
   }
   // Sample Registry, third in config order, is ok.
-  const asLine = /^│[^│]*│ {4}Sample Registry {2}● ok/m
-  const asCard = /[│┃] Sample Registry\s+● ok [│┃]/
+  const asLine = /^│[^│]*│ {4}Sample Registry {2}\uE0B6ok\uE0B4/m
+  const asCard = /[│┃] Sample Registry\s+\uE0B6ok\uE0B4 [│┃]/
 
   it("collapses an ok card to its line in place while others still load", async () => {
     const { app, frame } = open()

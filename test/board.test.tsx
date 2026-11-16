@@ -151,9 +151,9 @@ describe("board alignment", () => {
     assert.equal(columnOf(frame, "Demo Feed"), left, frame)
     // Names are padded per strip column, so the glyphs line up under them.
     assert.equal(
-      columnOf(frame, /Demo Feed\s+●/) +
+      columnOf(frame, /Demo Feed\s+\uE0B6/) +
         /Demo Feed\s+/.exec(stripVTControlCharacters(frame))![0].length,
-      columnOf(frame, /Saltmarsh Mail\s+●/) +
+      columnOf(frame, /Saltmarsh Mail\s+\uE0B6/) +
         /Saltmarsh Mail\s+/.exec(stripVTControlCharacters(frame))![0].length,
       frame,
     )
@@ -391,11 +391,11 @@ describe("first load", () => {
     })
     const frame = () => stripVTControlCharacters(stdout.frame)
     // Sample Registry, third in config order, is ok and answers early.
-    const mid = await until(frame, /Sample Registry\s+● ok/)
+    const mid = await until(frame, /Sample Registry\s+\uE0B6ok\uE0B4/)
     app.unmount()
     assert.match(mid, /checking/, mid)
     assert.doesNotMatch(mid, /ok · z show/, mid)
-    assert.match(mid, /[│┃] Sample Registry\s+● ok [│┃]/, mid)
+    assert.match(mid, /[│┃] Sample Registry\s+\uE0B6ok\uE0B4 [│┃]/, mid)
   })
 
   it("list: skeleton rows in the list's columns, so nothing shifts", async () => {

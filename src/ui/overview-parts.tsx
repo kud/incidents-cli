@@ -222,11 +222,10 @@ export type OverviewProps = {
   motion?: import("./overview-board.js").Motion
 }
 
-// A status word. Trouble and maintenance are pills, so the word reads as one
-// object; major and critical take the strong pill, the loudest thing on the
-// board. Ok and manual stay a glyph and a word: a pill on every line and
-// none of them stands out. The word carries the meaning in every form, and
-// under NO_COLOR the pill falls back to brackets. Drawn dim mid-transition.
+// A status word, always a pill, so every status reads as one object; major
+// and critical take the strong pill, the loudest thing on the board. The
+// word carries the meaning in every form, and under NO_COLOR the pill falls
+// back to brackets.
 export const StatusTag = ({
   row,
   faded = false,
@@ -236,17 +235,15 @@ export const StatusTag = ({
 }) => {
   const label = labelOf(row)
   const indicator = row.record?.indicator ?? ""
-  if (faded || indicator === "none" || indicator === "link")
-    return (
-      <Text color={TONE[label.tone]} dimColor={faded}>
-        {label.text}
-      </Text>
-    )
+  // The pill is as wide as glyph and word, so columns hold. A faded row
+  // keeps its pill on the neutral track, so it recedes without turning into
+  // plain text.
   return (
     <Pill
       variant={label.tone}
       tone="tonal"
-      strong={indicator === "critical" || indicator === "major"}
+      strong={!faded && (indicator === "critical" || indicator === "major")}
+      color={faded ? colors.track : undefined}
     >
       {label.text.split(" ").slice(1).join(" ")}
     </Pill>
