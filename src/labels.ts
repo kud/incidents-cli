@@ -44,3 +44,7 @@ export const declaredText = (record: {
     return `quiet · ${record.description.charAt(0).toLowerCase()}${record.description.slice(1)}`
   return "operational"
 }
+
+// What every status here is: the vendor's own word, not a measurement.
+export const DISCLAIMER =
+  "Declared status only: green is not proof your calls work."

@@ -218,20 +218,63 @@ describe("overview keys", () => {
     unmount()
   })
 
-  it("← in the list steps out to the filters and never changes the filter", async () => {
+  it("arrows mean depth: ← to the filters, → back, → again opens", async () => {
     const { lastFrame, stdin, unmount } = render(
       <App source={{ ...mockSource(5), view: "list" }} />,
     )
     await tick(300)
+    assert.match(lastFrame() ?? "", /↑↓ move/)
+    stdin.write(LEFT)
+    await tick()
+    const filters = lastFrame() ?? ""
+    assert.match(filters, /↑↓ filter/)
+    assert.doesNotMatch(filters, /Services · /)
+    // ← has nowhere further to go.
+    stdin.write(LEFT)
+    await tick()
+    assert.match(lastFrame() ?? "", /↑↓ filter/)
     stdin.write(RIGHT)
     await tick()
     assert.match(lastFrame() ?? "", /↑↓ move/)
-    assert.doesNotMatch(lastFrame() ?? "", /Services · /)
+    stdin.write(RIGHT)
+    const detail = await until(lastFrame, /Incidents › /)
+    assert.match(detail, /← back/)
     stdin.write(LEFT)
     await tick()
-    const frame = lastFrame() ?? ""
-    assert.match(frame, /↑↓ filter/)
-    assert.doesNotMatch(frame, /Services · /)
+    assert.match(lastFrame() ?? "", /↑↓ move/)
+    unmount()
+  })
+
+  it("? opens every key, grouped, with the declared-status note", async () => {
+    const { stdout, stdin } = terminal(120, 40)
+    const app = renderAt(<App source={{ ...mockSource(5), view: "list" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const lastFrame = () => stripVTControlCharacters(stdout.frame)
+    const unmount = () => app.unmount()
+    await until(lastFrame, /updated/)
+    stdin.press("?")
+    const help = await until(lastFrame, /done typing/)
+    for (const group of ["Move", "Views", "Search", "Page"])
+      assert.match(help, new RegExp(`\\s${group} {3,}`), help)
+    assert.match(help, /s\s+by status or by name/)
+    assert.match(help, /z\s+hide or show the ok services/)
+    assert.match(help, /r\s+refresh/)
+    assert.match(help, /Declared status only/)
+    assert.match(help, /esc close {2}q quit/)
+    assert.doesNotMatch(help, /Filters/)
+    // Keys meant for the page underneath do nothing while it is open.
+    stdin.press("v")
+    await tick()
+    stdin.press(String.fromCharCode(27))
+    await tick()
+    const back = lastFrame() ?? ""
+    assert.match(back, /Filters/)
+    assert.match(back, /v board/)
     unmount()
   })
 })
@@ -278,9 +321,14 @@ describe("page chrome", () => {
 })
 
 describe("footer keys", () => {
-  // The keys and the counter share one row: at a narrow width the least used
-  // keys drop, and `q quit` never wraps onto a line of its own.
-  for (const columns of [230, 100])
+  // Six keys at most, quit always last; the counter shares the row with the
+  // services pane and hides while the filters have the keys. `q quit` never
+  // wraps onto a line of its own.
+  const keysOf = (line: string) =>
+    [...line.matchAll(/(\S+) [a-z]+(?: [a-z]+)?(?= {2}|\s*$| {2,}\d)/g)].map(
+      (m) => m[1],
+    )
+  for (const columns of [230, 100, 80])
     for (const view of ["board", "list"] as const)
       for (const pane of ["services", "filters"])
         it(`${view}, ${pane} pane, at ${columns} columns: one row`, async () => {
@@ -297,20 +345,28 @@ describe("footer keys", () => {
           if (pane === "filters") stdin.press("\t")
           const done = await until(
             frame,
-            pane === "filters" ? /⏎ go/ : /⏎ open/,
+            pane === "filters" ? /↑↓ filter/ : /move/,
           )
           const lines = done.split("\n")
           const quit = lines.findIndex((l) => l.includes("q quit"))
           assert.ok(quit > 0, done)
-          assert.match(
-            lines[quit],
-            pane === "filters" ? /↑↓ filter/ : /move/,
-            done,
-          )
-          assert.match(lines[quit], /\d+ of \d+/, done)
+          const row = lines[quit]
+          if (pane === "filters") {
+            assert.match(row, /↑↓ filter {2}⏎ open/, done)
+            assert.doesNotMatch(row, /\d+ of \d+/, done)
+          } else {
+            assert.match(
+              row,
+              view === "board" ? /←→↑↓ move {2}⏎ open/ : /↑↓ move {2}→ open/,
+              done,
+            )
+            assert.match(row, /\d+ of \d+/, done)
+          }
+          assert.match(row, /q quit/, done)
+          assert.doesNotMatch(row, /\b[szr] |tab |go\b|fold/, done)
+          assert.ok(keysOf(row).length <= 6, row)
           assert.equal(lines[quit + 1].replace(/[│╰╯─\s]/g, ""), "", done)
-          if (columns >= 230 && pane === "services")
-            assert.match(lines[quit], /s by name/, done)
+          if (columns >= 100) assert.match(row, /\? keys/, done)
           app.unmount()
         })
 })

@@ -203,20 +203,36 @@ describe("list keys", () => {
     await press(DOWN, 2)
     const out = await press(LEFT)
     assert.match(out, /↑↓ filter/)
-    assert.match(out, /3 of 21/)
+    // The counter is the services pane's, and hides with its focus.
+    assert.doesNotMatch(out, /\d+ of 21/)
     assert.doesNotMatch(out, /Services · /)
-    await press(RIGHT)
+    assert.match(await press(RIGHT), /3 of 21/)
     assert.match(selectedLine(frame()), /Brightgate Auth/)
     app.unmount()
   })
 
-  it("→ in the list stays put", async () => {
-    const { app, press, on } = await ready()
+  it("→ opens the selected service and ← returns to the same row", async () => {
+    const { app, press, frame, on } = await ready()
     await press(DOWN, 2)
-    const after = await press(RIGHT)
-    assert.match(after, /↑↓ move/)
-    assert.match(after, /3 of 21/)
+    await press(RIGHT)
+    assert.match(
+      await until(frame, /Incidents › /),
+      /Incidents › Brightgate Auth/,
+    )
+    const back = await press(LEFT)
+    assert.match(back, /↑↓ move/)
+    assert.match(back, /3 of 21/)
     assert.match(on(), /Brightgate Auth/)
+    app.unmount()
+  })
+
+  it("⏎ in the filters opens the filter: the keys move to the services", async () => {
+    const { app, press } = await ready()
+    await press(TAB)
+    await press(DOWN)
+    const opened = await press(ENTER)
+    assert.match(opened, /↑↓ move/)
+    assert.match(opened, /1 of 10/)
     app.unmount()
   })
 

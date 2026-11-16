@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Box, useInput, useWindowSize } from "ink"
+import { Box, useApp, useInput, useWindowSize } from "ink"
 import {
   FilterBar,
   colors,
-  useAppKeys,
   useFilterMode,
   useListCursor,
   useTabs,
@@ -12,6 +11,7 @@ import { worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
 import { DetailBody } from "./detail.js"
+import { HelpOverlay } from "./help.js"
 import { fitHints } from "./fit-hints.js"
 import { FRAME_ROWS, Frame, TEXT_COLUMN, type Hint } from "./frame.js"
 import { overviewSegments, statusSegment } from "./header.js"
@@ -99,11 +99,11 @@ export const App = ({
   )
   const [sorted, setSorted] = useState(false)
   const [view, setView] = useState<View>(source.view ?? "board")
-  const [focus, setFocus] = useState<Focus>("body")
   const [sort, setSort] = useState<Sort>(source.sort ?? "status")
   const [folded, setFolded] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
   const [detailBusy, setDetailBusy] = useState(false)
+  const [help, setHelp] = useState(false)
   // When the open service was last read on its own, so its page says how old
   // its own data is rather than the overview's.
   const [detailAt, setDetailAt] = useState<Date | null>(null)
@@ -180,7 +180,8 @@ export const App = ({
   )
 
   const atRoot = detailId === null
-  const filterMode = useFilterMode({ isActive: atRoot })
+  const [focus, setFocus] = useState<Focus>("body")
+  const filterMode = useFilterMode({ isActive: atRoot && !help })
   const { term, typing } = filterMode
   const searchCounts = narrow(rows, { filter: "all", folded: false, term })
   const items = filterItems(searchCounts.counts)
@@ -200,10 +201,9 @@ export const App = ({
     (p) => visible.length || p.key !== "tab",
   )
 
+  // The app moves the cursor itself, so the hook only holds it.
   const { cursor, setCursor } = useListCursor(visible.length, {
-    vimKeys: !typing,
-    // The board walks in two dimensions, so it takes the arrows itself.
-    isActive: atRoot && focus === "body" && view === "list",
+    isActive: false,
   })
 
   // The cursor holds a service, not a position: across the re-sort, a tab,
@@ -252,21 +252,6 @@ export const App = ({
     setDetailId(null)
   }
 
-  useAppKeys({
-    isActive: !typing,
-    onBack: () => {
-      if (detailId !== null) {
-        closeDetail()
-        return true
-      }
-      if (filterMode.active) {
-        filterMode.clear()
-        return true
-      }
-      return false
-    },
-  })
-
   const filterW = filterWidth(columns)
   const full = filterW === FILTER_FULL
   const bodyW = Math.max(
@@ -274,10 +259,39 @@ export const App = ({
     columns - FRAME_SIDES - filterW - BEFORE_RULE - 1 - AFTER_RULE,
   )
 
+  const onFilters = focus === "filters"
+  const { exit } = useApp()
+
+  // One handler for the whole app, so the order holds: the overlay first,
+  // then quit, then the page that has the keys. Arrows mean depth: ← and →
+  // move between the filters, the services and a service's page, ↑↓ within
+  // the one that has focus. The board keeps its own ←→ between cards.
   useInput((input, key) => {
-    if (typing) return
+    if (typing) {
+      // The search owns every other key while it is being typed; ↑↓ still
+      // walk what it matches.
+      if (focus === "body" && (key.upArrow || key.downArrow))
+        step(key.upArrow ? "up" : "down")
+      return
+    }
+    if (help) {
+      if (input === "q") return exit()
+      if (input === "?" || key.escape || key.backspace || key.delete)
+        setHelp(false)
+      return
+    }
+    if (input === "q") return exit()
+    if (input === "?") return setHelp(true)
     if (input === "r") return detailId ? loadDetail(detailId) : load()
-    if (!atRoot) return
+    if (!atRoot) {
+      if (key.leftArrow || key.escape || key.backspace || key.delete)
+        closeDetail()
+      return
+    }
+    if (key.escape || key.backspace || key.delete) {
+      if (filterMode.active) filterMode.clear()
+      return
+    }
     if (key.tab) return setFocus((f) => (f === "filters" ? "body" : "filters"))
     // The view keys act on the whole overview, so they answer whichever pane
     // holds focus.
@@ -285,41 +299,64 @@ export const App = ({
     if (input === "s")
       return setSort((s) => (s === "status" ? "name" : "status"))
     if (input === "z") return setFolded((f) => !f)
-    const cycle = (step: number) => {
-      const i = FILTERS.findIndex((f) => f.id === tab)
-      setActive(FILTERS[(i + step + FILTERS.length) % FILTERS.length].id)
-    }
-    if (focus === "filters") {
-      if (key.rightArrow) return setFocus("body")
+    if (onFilters) {
       const back = key.upArrow || input === "k"
       const on = key.downArrow || input === "j"
-      if (back || on) return cycle(on ? 1 : -1)
-      if (key.return) return setFocus("body")
+      if (back || on) {
+        const i = FILTERS.findIndex((f) => f.id === tab)
+        const next = (i + (on ? 1 : -1) + FILTERS.length) % FILTERS.length
+        return setActive(FILTERS[next].id)
+      }
+      if (key.rightArrow || key.return) return setFocus("body")
       return
     }
-    if (view === "board") {
-      const dir: Direction | null = key.leftArrow
-        ? "left"
-        : key.rightArrow
-          ? "right"
-          : key.upArrow || input === "k"
-            ? "up"
-            : key.downArrow || input === "j"
-              ? "down"
-              : null
-      if (dir && visible.length) {
-        const next = boardStep(boardShape(visible, bodyW, sorted), cursor, dir)
-        return next === "filters" ? setFocus("filters") : setCursor(next)
-      }
-    } else if (key.leftArrow) {
-      // The list is one column, so every row sits on the board's left edge:
-      // ← steps out to the filters there too, and → has nowhere to go.
-      return setFocus("filters")
+    const open = () => {
+      if (visible[cursor]) openDetail(visible[cursor].service.id)
     }
-    if (key.return && visible[cursor]) openDetail(visible[cursor].service.id)
+    if (key.return) return open()
+    if (view === "list") {
+      if (key.leftArrow) return setFocus("filters")
+      if (key.rightArrow) return open()
+    }
+    const dir: Direction | null = key.leftArrow
+      ? "left"
+      : key.rightArrow
+        ? "right"
+        : key.upArrow || input === "k"
+          ? "up"
+          : key.downArrow || input === "j"
+            ? "down"
+            : null
+    if (dir) step(dir)
   })
 
+  // One move of the cursor in the services pane. The list is one column; the
+  // board walks in two, and ← off its first column steps out to the filters.
+  function step(dir: Direction) {
+    if (!visible.length) {
+      if (dir === "left") setFocus("filters")
+      return
+    }
+    if (view === "list") {
+      if (dir === "up" || dir === "down")
+        setCursor((c) =>
+          Math.max(
+            0,
+            Math.min(visible.length - 1, c + (dir === "up" ? -1 : 1)),
+          ),
+        )
+      return
+    }
+    const next = boardStep(boardShape(visible, bodyW, sorted), cursor, dir)
+    if (next === "filters") setFocus("filters")
+    else setCursor(next)
+  }
+
   const BRAND = "◆ Incidents"
+  const helpHints: Hint[] = [
+    ["esc", "close"],
+    ["q", "quit"],
+  ]
 
   if (detailId !== null) {
     const service = source.services.find((s) => s.id === detailId)
@@ -344,59 +381,82 @@ export const App = ({
                   at: detailAt ?? updatedAt,
                 }),
         ]}
-        hints={[
-          ["↑↓", "scroll"],
-          ["r", "refresh"],
-          ["esc", "back"],
-          ["q", "quit"],
-        ]}
+        hints={
+          help
+            ? helpHints
+            : [
+                ["↑↓", "scroll"],
+                ["←", "back"],
+                ["?", "keys"],
+                ["q", "quit"],
+              ]
+        }
       >
-        <DetailBody
-          record={record}
-          width={Math.max(20, columns - FRAME_SIDES)}
-          height={Math.max(4, height - FRAME_ROWS)}
-          historyBusy={detailBusy && !record?.historyLoaded}
-        />
+        {help ? <HelpOverlay indent={TEXT_COLUMN} width={columns} /> : null}
+        {/* Hidden rather than unmounted under the overlay, so the page keeps
+            its scroll. */}
+        <Box
+          display={help ? "none" : "flex"}
+          flexDirection="column"
+          flexGrow={1}
+        >
+          <DetailBody
+            record={record}
+            width={Math.max(20, columns - FRAME_SIDES)}
+            height={Math.max(4, height - FRAME_ROWS)}
+            historyBusy={detailBusy && !record?.historyLoaded}
+            active={!help}
+          />
+        </Box>
       </Frame>
     )
   }
 
   const Overview = view === "board" ? BoardOverview : ListOverview
-  const onFilters = focus === "filters"
   const filterName = FILTERS.find((f) => f.id === tab)?.name ?? tab
   // Collapsed, the column has no room for names, so the active one rides in
   // the body's title.
   const bodyTitle =
     full || tab === "all" ? "Services" : `Services · ${filterName}`
-  const hints: Hint[] = onFilters
-    ? [
-        ["↑↓", "filter"],
-        ["⏎", "go"],
-        ["tab", "services"],
-        ["/", "search"],
-        ["v", view === "list" ? "board" : "list"],
-        ["r", "refresh"],
-        ["q", "quit"],
-      ]
-    : [
-        ...(view === "board"
-          ? ([["←→↑↓", "move"]] as [string, string][])
-          : ([["↑↓", "move"]] as [string, string][])),
-        ["⏎", "open"],
-        ["tab", "filters"],
-        ["/", "search"],
-        ["z", folded ? "show ok" : "fold ok"],
-        ["v", view === "list" ? "board" : "list"],
-        ["s", sort === "status" ? "by name" : "by status"],
-        ["r", "refresh"],
-        ["q", "quit"],
-      ]
+  const other = view === "list" ? "board" : "list"
+  const searchHint: Hint =
+    term === null ? ["/", "search"] : ["esc", "clear search"]
+  // Six keys at most: the rest live behind `?`.
+  const hints: Hint[] = help
+    ? helpHints
+    : typing
+      ? [
+          ["↑↓", "move"],
+          ["⏎", "done"],
+          ["⌃u", "clear"],
+        ]
+      : onFilters
+        ? [
+            ["↑↓", "filter"],
+            ["⏎", "open"],
+            searchHint,
+            ["v", other],
+            ["?", "keys"],
+            ["q", "quit"],
+          ]
+        : [
+            view === "board" ? ["←→↑↓", "move"] : ["↑↓", "move"],
+            view === "board" ? ["⏎", "open"] : ["→", "open"],
+            searchHint,
+            ["v", other],
+            ["?", "keys"],
+            ["q", "quit"],
+          ]
+  // The counter is the services pane's: it hides while the filters have the
+  // keys, and with the overlay open.
+  const counter =
+    visible.length && !onFilters && !help
+      ? `${cursor + 1} of ${visible.length}`
+      : ""
   // The keys share their row with the counter; at a narrow width the least
-  // used ones drop rather than wrap: sort, fold, refresh, view, search.
-  const counter = visible.length ? `${cursor + 1} of ${visible.length}` : ""
+  // used ones drop rather than wrap.
   const hintRoom =
     columns - 2 - TEXT_COLUMN - 1 - (counter ? 2 + counter.length : 0)
-  const typingHints: Hint[] = [...filterMode.hints, ["q", "quit"]]
   return (
     <Frame
       columns={columns}
@@ -409,61 +469,60 @@ export const App = ({
         loading,
         at: updatedAt,
       })}
-      hints={fitHints(
-        typing ? typingHints : hints,
-        hintRoom,
-        onFilters ? ["r", "v", "/"] : ["s", "z", "r", "v", "/"],
-      )}
+      hints={typing ? hints : fitHints(hints, hintRoom, ["v", "/", "esc", "?"])}
       counter={counter || undefined}
     >
-      {term === null ? null : (
-        <Box paddingLeft={2}>
-          <FilterBar
-            term={term}
-            typing={typing}
-            caret={filterMode.caret}
-            matches={term ? visible.length : undefined}
-          />
-        </Box>
-      )}
-      <Box flexDirection="row" flexGrow={1}>
-        <Box flexDirection="column" width={filterW} flexShrink={0}>
-          <PaneTitle
-            label="Filters"
-            focused={onFilters}
-            width={filterW}
-            indent={TEXT_COLUMN}
-          />
-          <FilterList
-            items={items}
-            active={tab}
-            focused={onFilters}
-            full={full}
-            settled={sorted}
-          />
-        </Box>
-        <Box width={BEFORE_RULE} flexShrink={0} />
-        <Rule />
-        <Box width={AFTER_RULE} flexShrink={0} />
-        <Box flexDirection="column" width={bodyW} flexShrink={0}>
-          <PaneTitle
-            label={bodyTitle}
-            focused={!onFilters}
-            width={bodyW}
-            indent={MARK}
-          />
-          <Overview
-            rows={visible}
-            all={rows}
-            cursor={cursor}
-            sorted={sorted}
-            sort={sort}
-            hidden={hidden}
-            note={source.note}
-            width={bodyW}
-            focused={!onFilters}
-            empty={`Nothing in ${filterName} right now · tab to change filter`}
-          />
+      {help ? <HelpOverlay indent={TEXT_COLUMN} width={columns} /> : null}
+      <Box display={help ? "none" : "flex"} flexDirection="column" flexGrow={1}>
+        {term === null ? null : (
+          <Box paddingLeft={2}>
+            <FilterBar
+              term={term}
+              typing={typing}
+              caret={filterMode.caret}
+              matches={term ? visible.length : undefined}
+            />
+          </Box>
+        )}
+        <Box flexDirection="row" flexGrow={1}>
+          <Box flexDirection="column" width={filterW} flexShrink={0}>
+            <PaneTitle
+              label="Filters"
+              focused={onFilters}
+              width={filterW}
+              indent={TEXT_COLUMN}
+            />
+            <FilterList
+              items={items}
+              active={tab}
+              focused={onFilters}
+              full={full}
+              settled={sorted}
+            />
+          </Box>
+          <Box width={BEFORE_RULE} flexShrink={0} />
+          <Rule />
+          <Box width={AFTER_RULE} flexShrink={0} />
+          <Box flexDirection="column" width={bodyW} flexShrink={0}>
+            <PaneTitle
+              label={bodyTitle}
+              focused={!onFilters}
+              width={bodyW}
+              indent={MARK}
+            />
+            <Overview
+              rows={visible}
+              all={rows}
+              cursor={cursor}
+              sorted={sorted}
+              sort={sort}
+              hidden={hidden}
+              note={source.note}
+              width={bodyW}
+              focused={!onFilters}
+              empty={`Nothing in ${filterName} right now · ← filters`}
+            />
+          </Box>
         </Box>
       </Box>
     </Frame>

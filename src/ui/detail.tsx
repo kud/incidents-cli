@@ -553,6 +553,7 @@ export const DetailBody = ({
   width,
   height = Number.MAX_SAFE_INTEGER,
   historyBusy = false,
+  active = true,
 }: {
   record: ServiceRecord | undefined
   // The page's inner width and the rows its body may take, frame, title row,
@@ -560,6 +561,8 @@ export const DetailBody = ({
   width: number
   height?: number
   historyBusy?: boolean
+  // Off while something covers the page, so its keys go to that instead.
+  active?: boolean
 }) => {
   // Each pane's title and the blank under it come off the top.
   const room = Math.max(1, height - 2)
@@ -582,6 +585,7 @@ export const DetailBody = ({
               rows={sectionsRows(record, width, historyBusy)}
               height={room}
               at={EDGE}
+              isActive={active}
             />
           ) : (
             <PendingRows width={Math.min(48, width - EDGE)} />
@@ -611,7 +615,12 @@ export const DetailBody = ({
             width={right}
           >
             {history.length ? (
-              <Scroller rows={history} height={room} at={EDGE} />
+              <Scroller
+                rows={history}
+                height={room}
+                at={EDGE}
+                isActive={active}
+              />
             ) : !record || historyBusy ? (
               <PendingRows width={Math.min(60, right - EDGE)} rows={4} />
             ) : (
