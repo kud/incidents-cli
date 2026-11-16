@@ -283,7 +283,7 @@ describe("board arrows", () => {
     app.unmount()
   })
 
-  it("marks the selected card by its border, with no marker", async () => {
+  it("heavy frames mean on fire; without colour, a marker marks the selection", async () => {
     const { stdout, stdin } = terminal(160, 40)
     const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
       stdout: stdout as unknown as NodeJS.WriteStream,
@@ -296,10 +296,13 @@ describe("board arrows", () => {
     const done = await until(frame, /updated/)
     app.unmount()
     const lines = done.split("\n")
+    // One service is on fire (Acme Cloud, major): one heavy frame.
     assert.equal(lines.filter((l) => l.includes("┏")).length, 1, done)
-    const top = lines.findIndex((l) => l.includes("┏"))
-    for (const l of lines.slice(top, top + 6))
-      assert.doesNotMatch(bodyOf(l), /❯/)
+    // The test terminal draws no colour at all, so the selected card says
+    // so in text, and only that one.
+    const marked = lines.filter((l) => /[│┃] ❯ /.test(bodyOf(l)))
+    assert.equal(marked.length, 1, done)
+    assert.match(marked[0], /❯ Acme Cloud/)
   })
 })
 
@@ -363,7 +366,7 @@ describe("first load", () => {
   it("board: skeleton cards in the real grid, same tile and gutters", async () => {
     const { loading, done } = await load("board")
     // A card per service, its name known, a shimmer for what it will say.
-    assert.match(loading, /[┃│] Acme Cloud\s+◌ checking [┃│]/, loading)
+    assert.match(loading, /[┃│] (❯ )?Acme Cloud\s+◌ checking [┃│]/, loading)
     assert.match(loading, /▀/)
     // Status words are never cut, loading or loaded.
     for (const f of [loading, done])
@@ -371,7 +374,9 @@ describe("first load", () => {
     assert.doesNotMatch(loading, /◌ checking\s+\S+ {2,}◌ checking/)
     // The top edges of the first card line sit where the real ones land.
     const edges = (f: string) =>
-      [...lineWith(f, "┏")].flatMap((c, i) => (/[┏┓╭╮]/.test(c) ? [i] : []))
+      [...(f.split("\n").find((l) => /[┏╭]/.test(bodyOf(l))) ?? "")].flatMap(
+        (c, i) => (/[┏┓╭╮]/.test(c) ? [i] : []),
+      )
     assert.deepEqual(edges(loading), edges(done), `${loading}\n${done}`)
   })
 

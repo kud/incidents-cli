@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Box, Text } from "ink"
+import chalk from "chalk"
 import { colors } from "@kud/ink-ui"
 import {
   affected,
@@ -14,7 +15,6 @@ import {
 import {
   BAND,
   Busy,
-  CURSOR,
   Empty,
   Footer,
   GAP,
@@ -24,7 +24,6 @@ import {
   Marker,
   Pending,
   pendingWidth,
-  SOFT,
   TONE,
   useMeasuredHeight,
   widest,
@@ -39,6 +38,23 @@ const TILE = 44
 // the age.
 export const TILE_LINES = 6
 
+// A colour mixed halfway into the background: how the cards that are not
+// selected draw their frame and title, so the selected one stands out by
+// brightness while every frame keeps its status hue.
+export const muted = (hex: string): string => {
+  const n = parseInt(hex.slice(1), 16)
+  const mix = (c: number, g: number) => Math.round((c + g) / 2)
+  const out =
+    (mix((n >> 16) & 255, 0x1e) << 16) |
+    (mix((n >> 8) & 255, 0x1e) << 8) |
+    mix(n & 255, 0x2e)
+  return `#${out.toString(16).padStart(6, "0")}`
+}
+
+// A border style's left column: its top corner, side and bottom corner.
+const edgeOf = (heavy: boolean): [string, string, string] =>
+  heavy ? ["┏", "┃", "┗"] : ["╭", "│", "╰"]
+
 const Tile = ({
   row,
   active,
@@ -50,8 +66,8 @@ const Tile = ({
   active: boolean
   width: number
   focused: boolean
-  // Part-way through a transition: fewer rows, cut at the bottom. At one row
-  // the card is its own line, as the ok strip draws it.
+  // Part-way through a transition: fewer rows. At one row the card is its
+  // own line, as the ok strip draws it.
   height?: number
 }) => {
   const label = labelOf(row)
@@ -66,12 +82,36 @@ const Tile = ({
         <Text color={TONE[label.tone]}>{label.text}</Text>
       </Box>
     )
-  // The card's rows, top to bottom; a card part-way through collapsing
-  // keeps the first ones that fit inside its border.
+  const selected = active && focused
+  // The frame is the status: its colour on all four sides, heavy when the
+  // service is on fire, so that reads without colour too. Ok, manual and
+  // unread cards keep the neutral frame.
+  const fire = ["critical", "major"].includes(row.record?.indicator ?? "")
+  const tone =
+    row.record &&
+    row.record.indicator !== "none" &&
+    row.record.indicator !== "link"
+      ? TONE[label.tone]
+      : colors.track
+  // Selection is brightness: the selected card at full colour with a bold
+  // title, the rest muted. Without colour it needs a shape: an inverse
+  // title where styles still render, a marker where nothing does.
+  const frame = selected ? tone : muted(tone)
+  const plain = chalk.level === 0
+  const inverse = selected && !plain && Boolean(process.env.NO_COLOR)
+  const [corner, side, foot] = edgeOf(fire)
   const lines = [
     <Box key="t" width={inner} gap={GAP}>
       <Box flexGrow={1} flexShrink={1}>
-        <Text color={INK} bold wrap="truncate-end">
+        <Text
+          color={
+            selected ? INK : muted(tone === colors.track ? colors.muted : tone)
+          }
+          bold={selected}
+          inverse={inverse}
+          wrap="truncate-end"
+        >
+          {selected && plain ? "❯ " : ""}
           {row.service.name}
         </Text>
       </Box>
@@ -107,22 +147,32 @@ const Tile = ({
           <Pending key="c" width={pendingWidth(Math.floor(inner / 2), 1)} />,
         ]),
   ]
+  // The left edge is drawn on its own, corners included: as a side of the
+  // border, Ink gives its corners the top and bottom colour, and a status
+  // edge stopped short of the card's full height.
   return (
-    <Box
-      width={width}
-      flexShrink={0}
-      height={height}
-      flexDirection="column"
-      borderStyle={active ? "bold" : "round"}
-      borderColor={active ? (focused ? CURSOR : SOFT) : colors.track}
-      // The left edge carries the status tone, selected or not: the status
-      // belongs to the card, the rest of the border to the cursor.
-      borderLeftColor={TONE[label.tone]}
-      // The selected card takes the band, as a selected row does.
-      backgroundColor={active && focused ? BAND : undefined}
-      paddingX={1}
-    >
-      {lines.slice(0, Math.max(0, height - 2))}
+    <Box width={width} height={height} flexShrink={0}>
+      <Box flexDirection="column" width={1} flexShrink={0}>
+        <Text color={frame}>{corner}</Text>
+        {Array.from({ length: height - 2 }, (_, i) => (
+          <Text key={i} color={frame}>
+            {side}
+          </Text>
+        ))}
+        <Text color={frame}>{foot}</Text>
+      </Box>
+      <Box
+        width={width - 1}
+        flexShrink={0}
+        height={height}
+        flexDirection="column"
+        borderStyle={fire ? "bold" : "round"}
+        borderColor={frame}
+        borderLeft={false}
+        paddingX={1}
+      >
+        {lines.slice(0, Math.max(0, height - 2))}
+      </Box>
     </Box>
   )
 }
