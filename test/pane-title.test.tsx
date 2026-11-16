@@ -178,3 +178,31 @@ describe("selection without colour", () => {
     }
   })
 })
+
+describe("selection on a neutral card", () => {
+  it("a selected pinned ok card takes the bright grey frame", async () => {
+    const GREY = "\u001b[38;2;153;153;153m"
+    const base = mockSource(2)
+    const source = {
+      ...base,
+      view: "board" as const,
+      services: base.services.map((s) =>
+        s.id === "sample-registry" ? { ...s, pinned: true } : s,
+      ),
+    }
+    const { stdout, stdin } = terminal(160, 40)
+    const app = renderAt(<App source={source} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    for (let i = 0; i < 120 && !/updated/.test(stdout.frame); i++)
+      await new Promise((r) => setTimeout(r, 25))
+    const frame = stdout.frame
+    app.unmount()
+    // The pin leads, so the cursor starts on it.
+    assert.ok(frame.includes(`${GREY}╭`), frame)
+  })
+})

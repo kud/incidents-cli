@@ -122,8 +122,16 @@ const Tile = ({
   // A pinned card in trouble keeps the same soft frame: it was pinned to be
   // watched.
   const loud = fire || (Boolean(row.pinned) && tone !== colors.track)
+  // A neutral frame selected takes the bright grey: full "track" would be
+  // as dark as the rest, and a pinned ok card would never look selected.
   const frame =
-    selected && !faded ? tone : loud && !faded ? soft(tone) : muted(tone)
+    selected && !faded
+      ? tone === colors.track
+        ? colors.secondary
+        : tone
+      : loud && !faded
+        ? soft(tone)
+        : muted(tone)
   const plain = chalk.level === 0
   const inverse = selected && !plain && Boolean(process.env.NO_COLOR)
   const [corner, side, foot] = edgeOf(fire)
