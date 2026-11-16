@@ -6,17 +6,18 @@ import { INK } from "./overview-parts.js"
 export type KeyGroup = { title: string; keys: [key: string, action: string][] }
 
 // Every key the app answers, grouped by what it does. The footer shows a
-// handful; this is the whole of it.
+// handful; this is the whole of it. Each action stays short enough for two
+// columns at 80, so the overlay fits a 24-row terminal whole.
 export const KEY_GROUPS: KeyGroup[] = [
   {
     title: "Move",
     keys: [
-      ["↑↓  j k", "move within a pane"],
-      ["←  →", "filters, services, a service's page"],
-      ["⏎", "open the service, or the filter"],
-      ["tab", "between the filters and the services"],
+      ["↑↓  j k", "within a pane"],
+      ["←  →", "between panes"],
+      ["⏎", "open"],
+      ["tab", "filters or services"],
       ["g  G", "first, last"],
-      ["PgUp  PgDn", "a page up, a page down"],
+      ["PgUp  PgDn", "a page up, down"],
     ],
   },
   {
@@ -24,13 +25,13 @@ export const KEY_GROUPS: KeyGroup[] = [
     keys: [
       ["v", "board or list"],
       ["s", "by status or by name"],
-      ["z", "hide or show the ok services"],
+      ["z", "hide or show ok"],
     ],
   },
   {
     title: "Search",
     keys: [
-      ["/", "search names and aliases"],
+      ["/", "names and aliases"],
       ["⏎", "done typing"],
       ["⌃u", "clear the text"],
       ["esc", "clear the search"],
@@ -39,7 +40,7 @@ export const KEY_GROUPS: KeyGroup[] = [
   {
     title: "Page",
     keys: [
-      ["o", "open in the browser: the incident, else the status page"],
+      ["o", "open in browser"],
       ["r", "refresh"],
       ["←  esc", "back"],
       ["?", "these keys"],
@@ -52,8 +53,11 @@ const KEY_W = Math.max(
   ...KEY_GROUPS.flatMap((g) => g.keys.map(([k]) => k.length)),
 )
 
+const ACTION_W = Math.max(
+  ...KEY_GROUPS.flatMap((g) => g.keys.map(([, a]) => a.length)),
+)
 const GAP = 3
-const COLUMN_W = 2 + KEY_W + 2 + 40
+const COLUMN_W = 2 + KEY_W + 2 + ACTION_W
 
 const Group = ({ group, first }: { group: KeyGroup; first: boolean }) => (
   <Box flexDirection="column" marginTop={first ? 0 : 1} flexShrink={0}>
@@ -81,7 +85,8 @@ export const HelpOverlay = ({
   indent: number
   width: number
 }) => {
-  const split = width - indent >= COLUMN_W * 2 + GAP
+  // The frame takes a cell either side.
+  const split = width - 2 - indent >= COLUMN_W * 2 + GAP
   const half = Math.ceil(KEY_GROUPS.length / 2)
   const columns = split
     ? [KEY_GROUPS.slice(0, half), KEY_GROUPS.slice(half)]

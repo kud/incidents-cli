@@ -266,7 +266,8 @@ describe("overview keys", () => {
     for (const group of ["Move", "Views", "Search", "Page"])
       assert.match(help, new RegExp(`\\s${group} {3,}`), help)
     assert.match(help, /s\s+by status or by name/)
-    assert.match(help, /z\s+hide or show the ok services/)
+    assert.match(help, /z\s+hide or show ok/)
+    assert.match(help, /o\s+open in browser/)
     assert.match(help, /r\s+refresh/)
     assert.match(help, /Declared status only/)
     assert.match(help, /esc close {2}q quit/)
@@ -326,6 +327,27 @@ describe("page chrome", () => {
           assert.match(titles, new RegExp(title), done)
         app.unmount()
       })
+})
+
+describe("keys overlay", () => {
+  it("fits whole on an 80 by 24 terminal", async () => {
+    const { stdout, stdin } = terminal(80, 24)
+    const app = renderAt(<App source={{ ...mockSource(2), view: "list" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    await until(frame, /updated/)
+    stdin.press("?")
+    const help = await until(frame, /done typing/)
+    for (const text of ["Move", "Views", "Search", "Page", "q  ", "Declared"])
+      assert.ok(help.includes(text), `${text}\n${help}`)
+    assert.doesNotMatch(help, /…/)
+    app.unmount()
+  })
 })
 
 describe("search", () => {
