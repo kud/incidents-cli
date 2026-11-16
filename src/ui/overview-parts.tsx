@@ -6,7 +6,7 @@ import {
   type RefObject,
 } from "react"
 import { Box, Text, measureElement, type DOMElement } from "ink"
-import { colors } from "@kud/ink-ui"
+import { colors, Pill } from "@kud/ink-ui"
 import type { Tone } from "../labels.js"
 import type { Sort } from "../sort.js"
 import { visibleLength } from "../render.js"
@@ -82,14 +82,9 @@ export const Marker = ({
 // The status cell: glyph and word in the tone's colour, so the status never
 // rests on colour alone, or the spinner while the service has not answered.
 export const StatusCell = ({ row, width }: { row: Row; width: number }) => {
-  const label = labelOf(row)
   return (
     <Box width={width} flexShrink={0}>
-      {row.record ? (
-        <Text color={TONE[label.tone]}>{label.text}</Text>
-      ) : (
-        <Busy />
-      )}
+      {row.record ? <StatusTag row={row} /> : <Busy />}
     </Box>
   )
 }
@@ -225,4 +220,35 @@ export type OverviewProps = {
   okHidden?: number
   // A frame part-way through a transition, on the board.
   motion?: import("./overview-board.js").Motion
+}
+
+// A status word. Trouble and maintenance are pills, so the word reads as one
+// object; major and critical take the strong pill, the loudest thing on the
+// board. Ok and manual stay a glyph and a word: a pill on every line and
+// none of them stands out. The word carries the meaning in every form, and
+// under NO_COLOR the pill falls back to brackets. Drawn dim mid-transition.
+export const StatusTag = ({
+  row,
+  faded = false,
+}: {
+  row: Row
+  faded?: boolean
+}) => {
+  const label = labelOf(row)
+  const indicator = row.record?.indicator ?? ""
+  if (faded || indicator === "none" || indicator === "link")
+    return (
+      <Text color={TONE[label.tone]} dimColor={faded}>
+        {label.text}
+      </Text>
+    )
+  return (
+    <Pill
+      variant={label.tone}
+      tone="tonal"
+      strong={indicator === "critical" || indicator === "major"}
+    >
+      {label.text.split(" ").slice(1).join(" ")}
+    </Pill>
+  )
 }

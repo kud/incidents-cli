@@ -23,6 +23,7 @@ import {
   MARK,
   Marker,
   Pending,
+  StatusTag,
   pendingWidth,
   TONE,
   useMeasuredHeight,
@@ -44,6 +45,18 @@ export const TILE_LINES = 6
 export const muted = (hex: string): string => {
   const n = parseInt(hex.slice(1), 16)
   const mix = (c: number, g: number) => Math.round((c + g) / 2)
+  const out =
+    (mix((n >> 16) & 255, 0x1e) << 16) |
+    (mix((n >> 8) & 255, 0x1e) << 8) |
+    mix(n & 255, 0x2e)
+  return `#${out.toString(16).padStart(6, "0")}`
+}
+
+// A colour a quarter of the way into the background: the frame of a card on
+// fire when it is not selected.
+const soft = (hex: string): string => {
+  const n = parseInt(hex.slice(1), 16)
+  const mix = (c: number, g: number) => Math.round((c * 3 + g) / 4)
   const out =
     (mix((n >> 16) & 255, 0x1e) << 16) |
     (mix((n >> 8) & 255, 0x1e) << 8) |
@@ -82,9 +95,7 @@ const Tile = ({
           {row.service.name}
         </Text>
         <Text>{"  "}</Text>
-        <Text color={TONE[label.tone]} dimColor={faded}>
-          {label.text}
-        </Text>
+        <StatusTag row={row} faded={faded} />
       </Box>
     )
   const selected = active && focused
@@ -102,7 +113,10 @@ const Tile = ({
   // Selection is the frame alone, full colour on the selected card and
   // muted on the rest. Without colour it needs a shape: an inverse
   // title where styles still render, a marker where nothing does.
-  const frame = selected && !faded ? tone : muted(tone)
+  // A card on fire is never softened by half like the rest: it keeps most of
+  // its red, so it still reads as loud while another card is selected.
+  const frame =
+    selected && !faded ? tone : fire && !faded ? soft(tone) : muted(tone)
   const plain = chalk.level === 0
   const inverse = selected && !plain && Boolean(process.env.NO_COLOR)
   const [corner, side, foot] = edgeOf(fire)
@@ -122,9 +136,7 @@ const Tile = ({
       </Box>
       <Box flexShrink={0}>
         {row.record ? (
-          <Text color={TONE[label.tone]} dimColor={faded}>
-            {label.text}
-          </Text>
+          <StatusTag row={row} faded={faded} />
         ) : (
           <Busy label="checking" />
         )}
@@ -319,7 +331,6 @@ const GridLine = ({
   <Box flexShrink={0} gap={1}>
     {line.map((r, j) => {
       const active = first + j === cursor
-      const label = labelOf(r)
       const extra = headline(r.record)
       const room = Math.max(1, Math.min(nameW[j], cell - 1 - MARK - 4))
       const dim = Boolean(faded[r.service.id])
@@ -341,9 +352,7 @@ const GridLine = ({
           </Box>
           <Text>{"  "}</Text>
           {r.record ? (
-            <Text color={TONE[label.tone]} dimColor={dim} wrap="truncate-end">
-              {label.text}
-            </Text>
+            <StatusTag row={r} faded={dim} />
           ) : (
             <Busy label="checking" />
           )}

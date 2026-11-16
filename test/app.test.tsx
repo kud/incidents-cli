@@ -37,7 +37,7 @@ describe("interactive view", () => {
     // Name, status, age, then the headline.
     assert.match(
       frame,
-      /Acme Cloud\s+● major\s+1h 12m {2}Elevated API error rates/,
+      /Acme Cloud\s+\S?major\S?\s+1h 12m {2}Elevated API error rates/,
     )
     unmount()
   })

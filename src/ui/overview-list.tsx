@@ -8,13 +8,13 @@ import type { Tone } from "../labels.js"
 import {
   ageText,
   headline,
-  labelOf,
   runBreaks,
   startedAt,
   type Row,
 } from "./overview-model.js"
 import {
   BAND,
+  StatusTag,
   Empty,
   Footer,
   GAP,
@@ -95,7 +95,6 @@ export const scrollTop = (
 const Preview = ({ row, width }: { row?: Row; width: number }) => {
   if (!row) return null
   const r = row.record
-  const label = labelOf(row)
   const age = ageText(r)
   const start = startedAt(r)
   const clock = start
@@ -136,7 +135,7 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
         {row.service.name}
       </Text>
       <Text>{"   "}</Text>
-      <Text color={TONE[label.tone]}>{label.text}</Text>
+      <StatusTag row={row} />
     </Text>,
     <Text key="b0"> </Text>,
   ]

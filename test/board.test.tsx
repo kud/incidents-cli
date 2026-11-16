@@ -403,7 +403,8 @@ describe("first load", () => {
     const at = (f: string, re: RegExp) => lineWith(f, "Acme Cloud").search(re)
     assert.ok(at(loading, /▀/) > 0, loading)
     assert.equal(at(loading, /▀/), at(done, /Elevated/), `${loading}\n${done}`)
-    assert.equal(at(loading, /◌/), at(done, /● major/))
+    // The pill starts with its rounded cap, one cell before the word.
+    assert.equal(at(loading, /◌/), at(done, /major/) - 1)
   })
 })
 
