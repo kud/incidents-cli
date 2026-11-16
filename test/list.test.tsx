@@ -114,7 +114,6 @@ describe("list alignment", () => {
     }
     const name = at("Brightgate Auth")
     assert.ok(name > 0, done)
-    assert.equal(at("Declared status only"), name, done)
     assert.equal(at("❯ Acme Cloud"), name - 2, done)
     // The pane title starts on the names' column, the filters' title on the
     // glyphs', and the keys under it.
@@ -265,7 +264,7 @@ describe("list keys", () => {
     const detail = await until(frame, /Payouts/)
     assert.match(detail, /Incidents › Copperleaf Pay/)
     await press(BACKSPACE)
-    const back = await until(frame, /Declared status only/)
+    const back = await until(frame, /↑↓ move/)
     assert.match(back, /4 of 21/)
     assert.match(on(), /Copperleaf Pay/)
     app.unmount()
@@ -297,6 +296,23 @@ describe("list keys", () => {
 })
 
 describe("list preview", () => {
+  it("keeps the declared-status caveat off the chrome, under an ok service", async () => {
+    const { app, stdin, frame } = open(mockSource(2), 230)
+    const done = await until(frame, /updated/)
+    // Acme Cloud, selected, is in trouble: no caveat anywhere.
+    assert.doesNotMatch(done, /Declared status only/)
+    // The list side of the selected line: the preview shares the row.
+    const row = (f: string) => bodyOf(selectedLine(f)).split("│")[0]
+    for (let i = 0; i < 30 && !/● ok/.test(row(frame())); i++) {
+      stdin.press(DOWN)
+      await tick(30)
+    }
+    const ok = await until(frame, /Declared status only/)
+    assert.match(row(ok), /● ok/)
+    assert.equal(ok.split("Declared status only").length, 2, ok)
+    app.unmount()
+  })
+
   // left = max(floor(inner * 0.5), inner - 90 - divider), the body's inner
   // width being the terminal less the frame, the filter column and its rule.
   for (const columns of [160, 230])

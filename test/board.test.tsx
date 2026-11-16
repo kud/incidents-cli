@@ -139,7 +139,6 @@ describe("board alignment", () => {
     const left = columnOf(frame, "Brightgate Auth")
     assert.equal(columnOf(frame, "Demo Feed"), left, frame)
     assert.equal(columnOf(frame, /\d+ more below/), left, frame)
-    assert.equal(columnOf(frame, "Declared status only"), left, frame)
     // Right column: the same snap under the second card.
     assert.equal(
       columnOf(frame, "Driftwood Logs"),

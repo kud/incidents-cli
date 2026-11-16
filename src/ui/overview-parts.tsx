@@ -168,14 +168,17 @@ export const Empty = ({ text }: { text: string }) => (
   </Box>
 )
 
-export const Footer = ({ note }: { note: string | null }) => (
-  <Box flexDirection="column" marginTop={1} flexShrink={0} paddingLeft={MARK}>
-    <Text color={colors.muted}>
-      Declared status only: green is not proof your calls work.
-    </Text>
-    {note ? <Text color={colors.muted}>{note}</Text> : null}
-  </Box>
-)
+// The config's own note, when there is one, under the services. The
+// declared-status caveat is not chrome: it sits under an ok service, where
+// green could be misread, and behind `?`.
+export const Footer = ({ note }: { note: string | null }) =>
+  note ? (
+    <Box flexDirection="column" marginTop={1} flexShrink={0} paddingLeft={MARK}>
+      <Text color={colors.muted} wrap="truncate-end">
+        {note}
+      </Text>
+    </Box>
+  ) : null
 
 export type OverviewProps = {
   rows: Row[]

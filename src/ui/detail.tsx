@@ -2,7 +2,13 @@ import { useState, type ReactNode } from "react"
 import { Box, Text, useInput } from "ink"
 import { colors, type Span, type StyledLine } from "@kud/ink-ui"
 import { ageOf, type ServiceRecord } from "../core/index.js"
-import { statusLabel, wordLabel, type Label, type Tone } from "../labels.js"
+import {
+  DISCLAIMER,
+  statusLabel,
+  wordLabel,
+  type Label,
+  type Tone,
+} from "../labels.js"
 import { hyperlink, visibleLength } from "../render.js"
 import { PaneTitle, Rule } from "./filter-column.js"
 import { INK, Pending, pendingWidth } from "./overview-parts.js"
@@ -181,6 +187,8 @@ const headline = (record: ServiceRecord): StyledLine[] => {
         },
       ],
     },
+    // Green is where the vendor's word is most easily taken for proof.
+    ...(record.indicator === "none" ? [quiet(DISCLAIMER)] : []),
   ]
 }
 

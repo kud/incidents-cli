@@ -53,7 +53,7 @@ describe("interactive view", () => {
     assert.match(detail, /Delayed webhook delivery/)
     stdin.write(String.fromCharCode(27))
     await tick(150)
-    assert.match(lastFrame() ?? "", /Declared status only/)
+    assert.match(lastFrame() ?? "", /↑↓ move/)
     unmount()
   })
 
@@ -159,7 +159,7 @@ describe("interactive view", () => {
   const listLines = (frame: string): string[] => {
     const lines = frame.split("\n")
     const from = lines.findIndex((l) => l.includes("Services")) + 1
-    const to = lines.findIndex((l) => l.includes("Declared status only"))
+    const to = lines.findIndex((l) => l.includes("q quit"))
     const body = lines.slice(from, to).map(bodyOf)
     while (body.length && isBlank(body[0])) body.shift()
     while (body.length && isBlank(body.at(-1)!)) body.pop()

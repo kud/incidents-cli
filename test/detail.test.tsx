@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { describe, it } from "node:test"
 import type { StyledLine } from "@kud/ink-ui"
 import type { ServiceRecord } from "../src/core/index.js"
+import { MOCK_SERVICES, mockRecord } from "../src/mock.js"
 import { stripEscapes } from "../src/render.js"
 import { historyLines, sectionsLines } from "../src/ui/detail.js"
 
@@ -120,5 +121,29 @@ describe("detail view", () => {
     const rows = lines.filter((l) => /Past incident/.test(l))
     assert.equal(rows.length, 24)
     assert.ok(rows.every((l) => l.startsWith("   P") && l.length <= 80))
+  })
+})
+
+describe("declared-status caveat", () => {
+  const of = (id: string) =>
+    sectionsLines(
+      mockRecord(
+        MOCK_SERVICES.find((s) => s.id === id)!,
+        true,
+      ),
+      120,
+    )
+      .map(text)
+      .join("\n")
+
+  it("sits under an ok service's address", () => {
+    assert.match(
+      of("sample-registry"),
+      /status\.sample-registry\.example\.com\n {1}Declared status only/,
+    )
+  })
+
+  it("stays off a service in trouble", () => {
+    assert.doesNotMatch(of("acme-cloud"), /Declared status only/)
   })
 })

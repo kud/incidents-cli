@@ -2,6 +2,7 @@ import { useRef, type ReactNode } from "react"
 import { Box, Text } from "ink"
 import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
+import { DISCLAIMER } from "../labels.js"
 import { hyperlink } from "../render.js"
 import type { Tone } from "../labels.js"
 import {
@@ -157,6 +158,12 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
         {r ? headline(r) || "operational" : "checking…"}
       </Text>,
     )
+    if (r?.indicator === "none")
+      lines.push(
+        <Text key="d" color={colors.muted} wrap="truncate-end">
+          {DISCLAIMER}
+        </Text>,
+      )
   }
   if (comps.length) {
     lines.push(<Text key="b1"> </Text>)
