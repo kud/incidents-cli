@@ -165,10 +165,28 @@ export const hiddenLine = (parts: HiddenPart[]): string =>
 
 // The order the cursor walks: the board draws its cards before the grid, so
 // ↓ has to follow the eye there rather than the list's order.
-export const navOrder = (view: View, rows: Row[]): Row[] =>
-  view === "board"
-    ? [...rows.filter(isCard), ...rows.filter((r) => !isCard(r))]
-    : rows
+export const navOrder = (view: View, rows: Row[]): Row[] => {
+  if (view !== "board") return rows
+  const { cards, strip, manual } = boardGroups(rows, true)
+  return [...cards, ...strip, ...manual]
+}
+
+// The board's three groups, in the order it draws them: a card for each
+// service worth reading in full, the strip of the rest, then the manual pages,
+// which claim nothing, in a group of their own at the end. Until the sort
+// lands everything sits in the strip, so nothing jumps service by service.
+export const boardGroups = (
+  rows: Row[],
+  sorted: boolean,
+): { cards: Row[]; strip: Row[]; manual: Row[] } => {
+  if (!sorted) return { cards: [], strip: rows, manual: [] }
+  const isManual = (r: Row) => r.record?.indicator === "link"
+  return {
+    cards: rows.filter(isCard),
+    strip: rows.filter((r) => !isCard(r) && !isManual(r)),
+    manual: rows.filter((r) => !isCard(r) && isManual(r)),
+  }
+}
 
 const startOf = (r: ServiceRecord): string | undefined =>
   r.active[0]?.date ??

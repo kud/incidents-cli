@@ -194,4 +194,6 @@ export type OverviewProps = {
   width: number
   focused: boolean
   empty: string
+  // How many ok services the board folded into one line.
+  okHidden?: number
 }

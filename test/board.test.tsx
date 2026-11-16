@@ -3,7 +3,9 @@ import { describe, it } from "node:test"
 import { stripVTControlCharacters } from "node:util"
 import { render } from "ink"
 import { App } from "../src/ui/app.js"
-import { boardStep } from "../src/ui/overview-board.js"
+import { boardFits, boardShape, boardStep } from "../src/ui/overview-board.js"
+import { MOCK_SERVICES, mockRecord } from "../src/mock.js"
+import { navOrder } from "../src/ui/overview-model.js"
 import { mockSource } from "../src/source.js"
 import { terminal, bodyOf } from "./helpers.js"
 
@@ -16,6 +18,10 @@ const until = async (frame: () => string, pattern: RegExp) => {
 }
 
 const NAMES = mockSource().services.map((s) => s.name)
+const MOCK = navOrder(
+  "board",
+  MOCK_SERVICES.map((service) => ({ service, record: mockRecord(service) })),
+)
 const RIGHT = "\u001b[C"
 const LEFT = "\u001b[D"
 const DOWN = "\u001b[B"
@@ -42,10 +48,11 @@ const accountsForAll = (frame: string) => {
     assert.equal(frame.split(name).length - 1, 1, `${name} drawn once`)
   const above = Number(/(\d+) more above/.exec(frame)?.[1] ?? 0)
   const below = Number(/(\d+) more below/.exec(frame)?.[1] ?? 0)
+  const folded = Number(/● (\d+) ok · z show/.exec(frame)?.[1] ?? 0)
   assert.equal(
-    shown.length + above + below,
+    shown.length + above + below + folded,
     NAMES.length,
-    `shown ${shown.length} + above ${above} + below ${below}\n${frame}`,
+    `shown ${shown.length} + above ${above} + below ${below} + folded ${folded}\n${frame}`,
   )
   for (const line of frame.split("\n").filter((l) => /no feed/.test(l)))
     assert.match(line, /Test Docs/, line)
@@ -83,6 +90,10 @@ describe("board on a short window", () => {
     })
     const frame = () => stdout.frame
     await until(frame, /updated/)
+    // The strip is folded on a window this short; z shows it, so the walk
+    // can reach every service.
+    stdin.press("z")
+    await until(frame, /Harbour CI|more below/)
     const reached = new Set<string>()
     const at = () => {
       const name = selectedOf(frame())
@@ -125,8 +136,8 @@ const columnOf = (frame: string, text: string | RegExp): number => {
 }
 
 describe("board alignment", () => {
-  it("starts grid names, notes and the footer in the card-title column", async () => {
-    const { stdout, stdin } = terminal(160, 40)
+  it("starts grid names in the card-title column, glyphs in line", async () => {
+    const { stdout, stdin } = terminal(160, 60)
     const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
       stdout: stdout as unknown as NodeJS.WriteStream,
       stdin: stdin as unknown as NodeJS.ReadStream,
@@ -138,7 +149,19 @@ describe("board alignment", () => {
     // Left column: a card below the selected one, then the grid under it.
     const left = columnOf(frame, "Brightgate Auth")
     assert.equal(columnOf(frame, "Demo Feed"), left, frame)
-    assert.equal(columnOf(frame, /\d+ more below/), left, frame)
+    // Names are padded per strip column, so the glyphs line up under them.
+    assert.equal(
+      columnOf(frame, /Demo Feed\s+●/) +
+        /Demo Feed\s+/.exec(stripVTControlCharacters(frame))![0].length,
+      columnOf(frame, /Saltmarsh Mail\s+●/) +
+        /Saltmarsh Mail\s+/.exec(stripVTControlCharacters(frame))![0].length,
+      frame,
+    )
+    // Manual pages close the board in a group of their own.
+    const lines = stripVTControlCharacters(frame).split("\n")
+    const manual = lines.findIndex((l) => l.includes("Test Docs"))
+    assert.equal(bodyOf(lines[manual - 1]).replace(/[│\s]/g, ""), "", frame)
+    assert.ok(manual > lines.findIndex((l) => l.includes("Wicker Video")))
     // Right column: the same snap under the second card.
     assert.equal(
       columnOf(frame, "Driftwood Logs"),
@@ -162,14 +185,22 @@ describe("board alignment", () => {
       stripVTControlCharacters(frame)
         .split("\n")
         .find((l) => l.includes("q quit")) ?? ""
-    assert.match(keys, /1 of 21 │$/, frame)
+    assert.match(keys, /1 of \d+ │$/, frame)
     app.unmount()
   })
 })
 
 describe("board arrows", () => {
   // Five cards two to a line, then four grid names two to a line.
-  const shape = { cards: 5, perLine: 2, across: 2, span: 1, total: 9 }
+  const shape = {
+    lines: [
+      { first: 0, size: 2, span: 1 },
+      { first: 2, size: 2, span: 1 },
+      { first: 4, size: 1, span: 1 },
+      { first: 5, size: 2, span: 1 },
+      { first: 7, size: 2, span: 1 },
+    ],
+  }
 
   it("moves along a row with ←→ and down a column with ↑↓", () => {
     assert.equal(boardStep(shape, 0, "right"), 1)
@@ -189,6 +220,23 @@ describe("board arrows", () => {
     assert.equal(boardStep(shape, 5, "down"), 7)
     assert.equal(boardStep(shape, 8, "right"), 8)
     assert.equal(boardStep(shape, 8, "down"), 8)
+  })
+
+  it("starts the manual group on a line of its own, under its column", () => {
+    // Three ok names on a line of four, then one manual page: it sits on
+    // its own line, and ↓ from any ok name lands on it.
+    const rows = MOCK.filter((r) => r.record?.indicator === "none").slice(0, 3)
+    const manual = MOCK.filter((r) => r.record?.indicator === "link")
+    const { lines } = boardShape([...rows, ...manual], 230, true)
+    assert.deepEqual(
+      lines.map((l) => [l.first, l.size]),
+      [
+        [0, 3],
+        [3, 1],
+      ],
+    )
+    assert.equal(boardStep({ lines }, 2, "down"), 3)
+    assert.equal(boardStep({ lines }, 3, "up"), 0)
   })
 
   it("leaves for the filters off the first column, card or grid", () => {
@@ -279,13 +327,13 @@ describe("grid while loading", () => {
 })
 
 describe("scroll note", () => {
-  // The note under the cards takes a blank row above it, the same break the
-  // board leaves between the cards and the grid.
+  // When cards still overflow with the strip folded, the count of what is off
+  // screen sits at the bottom right of the card grid, on the row under it.
   for (const [columns, rows] of [
     [100, 30],
     [230, 24],
   ])
-    it(`sits one blank row under the cards at ${columns} columns`, async () => {
+    it(`sits at the card grid's bottom right at ${columns} columns`, async () => {
       const { stdout, stdin } = terminal(columns, rows)
       const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
         stdout: stdout as unknown as NodeJS.WriteStream,
@@ -300,9 +348,70 @@ describe("scroll note", () => {
       const lines = done.split("\n")
       const note = lines.findIndex((l) => /more below/.test(l))
       assert.ok(note > 1, done)
-      assert.equal(bodyOf(lines[note - 1]).replace(/[│\s]/g, ""), "", done)
-      assert.match(bodyOf(lines[note - 2]), /[┛╯]/, done)
+      const cards = lines[note - 1]
+      assert.match(bodyOf(cards), /[┛╯]/, done)
+      const edge = Math.max(cards.lastIndexOf("╯"), cards.lastIndexOf("┛"))
+      assert.equal(
+        lines[note].indexOf("scroll") + "scroll".length - 1,
+        edge,
+        done,
+      )
+      // The fold came first: no ok name is left in the strip.
+      assert.match(done, /● 9 ok · z show/)
       accountsForAll(done)
       app.unmount()
     })
+})
+
+describe("ok strip", () => {
+  const board = async (columns: number, rows: number) => {
+    const { stdout, stdin } = terminal(columns, rows)
+    const app = render(<App source={{ ...mockSource(2), view: "board" }} />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
+    const frame = () => stripVTControlCharacters(stdout.frame)
+    await until(frame, /updated/)
+    await tick(100)
+    return { app, stdin, frame }
+  }
+
+  it("folds to one line before any card scrolls off", async () => {
+    const { app, frame } = await board(160, 48)
+    const done = frame()
+    assert.match(done, /● 9 ok · z show/)
+    assert.doesNotMatch(done, /more below|Harbour CI/)
+    for (const name of ["Acme Cloud", "Orbitly Push", "Demo Maintenance"])
+      assert.match(done, new RegExp(name), done)
+    app.unmount()
+  })
+
+  it("stays open when everything fits, and z hides it, then shows it", async () => {
+    const { app, stdin, frame } = await board(160, 60)
+    assert.match(frame(), /Harbour CI/)
+    assert.doesNotMatch(frame(), /ok · z show/)
+    stdin.press("z")
+    assert.match(await until(frame, /ok · z show/), /● 9 ok · z show/)
+    stdin.press("z")
+    assert.match(await until(frame, /Harbour CI/), /Harbour CI/)
+    app.unmount()
+  })
+
+  it("z on a folded strip shows it, and the cards scroll instead", async () => {
+    const { app, stdin, frame } = await board(160, 48)
+    stdin.press("z")
+    const shown = await until(frame, /Harbour CI|more below/)
+    assert.doesNotMatch(shown, /ok · z show/)
+    accountsForAll(shown)
+    app.unmount()
+  })
+
+  it("decides on the cards and the strip alone", () => {
+    // 132 is the body beside the filters at 160 columns: two cards a line.
+    assert.ok(boardFits(MOCK, 132, true, 44))
+    assert.ok(!boardFits(MOCK, 132, true, 43))
+  })
 })

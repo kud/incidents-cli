@@ -13,6 +13,7 @@ import { FRAME_ROWS, Frame, TEXT_COLUMN, type Hint } from "./frame.js"
 import { overviewSegments, statusSegment } from "./header.js"
 import {
   BoardOverview,
+  boardFits,
   boardShape,
   boardStep,
   type Direction,
@@ -32,7 +33,7 @@ import {
 } from "./overview-model.js"
 import type { Sort } from "../sort.js"
 import type { View } from "../view.js"
-import { FRAME_SIDES, MARK, TONE } from "./overview-parts.js"
+import { FRAME_SIDES, MARK, TONE, useMeasuredHeight } from "./overview-parts.js"
 import {
   FilterList,
   PaneTitle,
@@ -100,7 +101,9 @@ export const App = ({
   const [sorted, setSorted] = useState(false)
   const [view, setView] = useState<View>(source.view ?? "board")
   const [sort, setSort] = useState<Sort>(source.sort ?? "status")
-  const [folded, setFolded] = useState(false)
+  // The ok services: shown, hidden by `z`, or left to the board, which
+  // folds them into one line when the cards would not fit beside them.
+  const [ok, setOk] = useState<"auto" | "shown" | "hidden">("auto")
   const [detailId, setDetailId] = useState<string | null>(initialDetail ?? null)
   const [detailBusy, setDetailBusy] = useState(false)
   const [help, setHelp] = useState(false)
@@ -192,13 +195,37 @@ export const App = ({
     initial: "all",
     isActive: false,
   })
-  const narrowed = narrow(rows, { filter: tab, folded, term })
+  const filterW = filterWidth(columns)
+  const full = filterW === FILTER_FULL
+  const bodyW = Math.max(
+    20,
+    columns - FRAME_SIDES - filterW - BEFORE_RULE - 1 - AFTER_RULE,
+  )
+  const [paneRef, paneHeight] = useMeasuredHeight()
+  const unfolded = narrow(rows, { filter: tab, folded: false, term })
+  const folded =
+    ok === "hidden" ||
+    (ok === "auto" &&
+      view === "board" &&
+      paneHeight > 0 &&
+      !boardFits(
+        sorted ? navOrder(view, unfolded.rows) : unfolded.rows,
+        bodyW,
+        sorted,
+        paneHeight - (source.note ? 2 : 0) - 1,
+      ))
+  const narrowed = folded
+    ? narrow(rows, { filter: tab, folded, term })
+    : unfolded
   // Until the sort lands the board has no cards yet, so the walk is the grid.
   const visible = sorted ? navOrder(view, narrowed.rows) : narrowed.rows
   // An empty pane says why on one line of its own, never stacked on the
   // hidden counts that would only repeat it.
+  // The board says what it folded on the strip's own line.
   const hidden = visible.length
-    ? hiddenParts(narrowed.hidden, { filter: tab, term })
+    ? hiddenParts(narrowed.hidden, { filter: tab, term }).filter(
+        (p) => view === "list" || p.key !== "z",
+      )
     : []
   const empty = emptyLine(narrowed.hidden, { filter: tab, term })
 
@@ -253,13 +280,6 @@ export const App = ({
     setDetailId(null)
   }
 
-  const filterW = filterWidth(columns)
-  const full = filterW === FILTER_FULL
-  const bodyW = Math.max(
-    20,
-    columns - FRAME_SIDES - filterW - BEFORE_RULE - 1 - AFTER_RULE,
-  )
-
   const onFilters = focus === "filters"
   const { exit } = useApp()
 
@@ -306,7 +326,7 @@ export const App = ({
     if (input === "v") return setView((v) => (v === "list" ? "board" : "list"))
     if (input === "s")
       return setSort((s) => (s === "status" ? "name" : "status"))
-    if (input === "z") return setFolded((f) => !f)
+    if (input === "z") return setOk(folded ? "shown" : "hidden")
     if (onFilters) {
       const back = key.upArrow || input === "k"
       const on = key.downArrow || input === "j"
@@ -520,18 +540,21 @@ export const App = ({
                 )
               }
             />
-            <Overview
-              rows={visible}
-              all={rows}
-              cursor={cursor}
-              sorted={sorted}
-              sort={sort}
-              hidden={hidden}
-              note={source.note}
-              width={bodyW}
-              focused={!onFilters}
-              empty={empty}
-            />
+            <Box ref={paneRef} flexDirection="column" flexGrow={1}>
+              <Overview
+                rows={visible}
+                all={rows}
+                cursor={cursor}
+                sorted={sorted}
+                sort={sort}
+                hidden={hidden}
+                note={source.note}
+                width={bodyW}
+                focused={!onFilters}
+                empty={empty}
+                okHidden={view === "board" ? narrowed.hidden.folded : 0}
+              />
+            </Box>
           </Box>
         </Box>
       </Box>

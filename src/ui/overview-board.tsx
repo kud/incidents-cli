@@ -1,11 +1,12 @@
+import type { ReactNode } from "react"
 import { Box, Text } from "ink"
 import { Spinner, colors } from "@kud/ink-ui"
 import {
   affected,
   ageText,
+  boardGroups,
   glyphOf,
   headline,
-  isCard,
   labelOf,
   wordOf,
   type Row,
@@ -31,7 +32,7 @@ const TILE = 46
 // A card's height: its border, then the name with its status, a blank that
 // sets the name apart from what it says, the title, and the components with
 // the age.
-const TILE_LINES = 6
+export const TILE_LINES = 6
 
 const Tile = ({
   row,
@@ -89,39 +90,6 @@ const Tile = ({
   )
 }
 
-// Everything without a card, pending services included, as a grid of names
-// that reads at a glance. The grid snaps to the card columns: a cell is one
-// card column wide, or two when its widest entry will not fit in one, so every
-// name starts under a card's left edge.
-const gridLines = (
-  rows: Row[],
-  inner: number,
-  tile: number,
-  perLine: number,
-  sorted: boolean,
-): { cell: number; span: number; across: number; lines: Row[][] } => {
-  const natural =
-    MARK +
-    widest(
-      rows.map((r) => {
-        // Before the sort lands, the cell is sized on the names alone, so a
-        // service answering with a long title never reflows the grid; the
-        // cell clips it until then.
-        if (!sorted) return `${r.service.name}  ◌ checking`
-        const extra = headline(r.record)
-        return `${r.service.name}  ${glyphOf(labelOf(r))} ${r.record ? wordOf(labelOf(r)) : "checking"}${extra ? `  ${extra}` : ""}`
-      }),
-    ) +
-    GAP
-  const span = Math.min(perLine, natural <= tile + 1 ? 1 : 2)
-  const cell = span * (tile + 1)
-  const across = Math.max(1, Math.floor((inner + 1) / cell))
-  const lines: Row[][] = []
-  for (let i = 0; i < rows.length; i += across)
-    lines.push(rows.slice(i, i + across))
-  return { cell, span, across, lines }
-}
-
 // The card geometry for a body `width` cells wide: how many cards share a
 // line, and how wide each one is.
 const tiles = (width: number) => {
@@ -129,14 +97,58 @@ const tiles = (width: number) => {
   return { perLine, tile: Math.floor((width + 1) / perLine) - 1 }
 }
 
-// The board as the arrows see it: cards in rows of `perLine`, then the grid
-// in rows of `across`, each grid cell `span` card columns wide.
-export type BoardShape = {
-  cards: number
-  perLine: number
-  across: number
-  span: number
-  total: number
+// Everything without a card as a grid of names that reads at a glance. The
+// grid snaps to the card columns: a cell is one card column wide, or two when
+// its widest entry will not fit in one, so every name starts under a card's
+// left edge. The strip and the manual group share one cell size.
+const gridOf = (
+  rows: Row[],
+  inner: number,
+  tile: number,
+  perLine: number,
+  sorted: boolean,
+): { cell: number; span: number; across: number } => {
+  // Names are padded to the widest, so the cell is sized on the widest name
+  // and the widest status after it. Before the sort lands it is sized on the
+  // names alone, so a service answering with a long title never reflows the
+  // grid; the cell clips it until then.
+  const natural =
+    MARK +
+    widest(rows.map((r) => r.service.name)) +
+    GAP +
+    widest(
+      rows.map((r) => {
+        if (!sorted) return "◌ checking"
+        const extra = headline(r.record)
+        return `${glyphOf(labelOf(r))} ${r.record ? wordOf(labelOf(r)) : "checking"}${extra ? `  ${extra}` : ""}`
+      }),
+    ) +
+    GAP
+  const span = Math.min(perLine, natural <= tile + 1 ? 1 : 2)
+  const cell = span * (tile + 1)
+  const across = Math.max(1, Math.floor((inner + 1) / cell))
+  return { cell, span, across }
+}
+
+const chunk = <T,>(list: T[], size: number): T[][] => {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
+
+// The board as the arrows see it: one entry per line on screen, cards and
+// grid alike, with the services it holds and how many card columns each of
+// its cells spans. A blank between groups is not a line here.
+export type BoardLine = { first: number; size: number; span: number }
+export type BoardShape = { lines: BoardLine[] }
+
+const lineUp = (sizes: number[], span: number, start: number): BoardLine[] => {
+  let first = start
+  return sizes.map((size) => {
+    const line = { first, size, span }
+    first += size
+    return line
+  })
 }
 
 export const boardShape = (
@@ -144,59 +156,66 @@ export const boardShape = (
   width: number,
   sorted: boolean,
 ): BoardShape => {
-  const cards = sorted ? rows.filter(isCard).length : 0
-  const rest = sorted ? rows.filter((r) => !isCard(r)) : rows
+  const { cards, strip, manual } = boardGroups(rows, sorted)
   const { perLine, tile } = tiles(width)
-  const { span, across } = gridLines(rest, width, tile, perLine, sorted)
-  return { cards, perLine, across, span, total: rows.length }
+  const grid = gridOf([...strip, ...manual], width, tile, perLine, sorted)
+  const cardLines = lineUp(
+    chunk(cards, perLine).map((l) => l.length),
+    1,
+    0,
+  )
+  const stripLines = lineUp(
+    chunk(strip, grid.across).map((l) => l.length),
+    grid.span,
+    cards.length,
+  )
+  const manualLines = lineUp(
+    chunk(manual, grid.across).map((l) => l.length),
+    grid.span,
+    cards.length + strip.length,
+  )
+  return { lines: [...cardLines, ...stripLines, ...manualLines] }
 }
 
 export type Direction = "left" | "right" | "up" | "down"
 
-// Where an arrow takes the cursor: ←→ along a row, ↑↓ down a column, across
-// the cards and the grid as one board. ← off the first column leaves the body
-// for the filters; every other edge holds still.
+// Where an arrow takes the cursor: ←→ along a line, ↑↓ to the line above or
+// below, landing on the cell under the same card column. ← off a line's first
+// cell leaves the body for the filters; every other edge holds still.
 export const boardStep = (
-  shape: BoardShape,
+  { lines }: BoardShape,
   cursor: number,
   dir: Direction,
 ): number | "filters" => {
-  const { cards, perLine, across, span, total } = shape
-  const onCards = cursor < cards
-  const width = onCards ? perLine : across
-  const at = onCards ? cursor : cursor - cards
-  const size = onCards ? cards : total - cards
-  const col = at % width
-  const row = Math.floor(at / width)
-  const lastRow = Math.floor((size - 1) / width)
+  const at = lines.findIndex(
+    (l) => cursor >= l.first && cursor < l.first + l.size,
+  )
+  if (at < 0) return cursor
+  const line = lines[at]
+  const col = cursor - line.first
   if (dir === "left") return col ? cursor - 1 : "filters"
-  if (dir === "right")
-    return col < width - 1 && at + 1 < size ? cursor + 1 : cursor
-  if (dir === "down") {
-    if (row < lastRow)
-      return Math.min(cursor + width, onCards ? cards - 1 : total - 1)
-    if (!onCards || cards === total) return cursor
-    return (
-      cards + Math.min(Math.floor(col / span), across - 1, total - cards - 1)
-    )
-  }
-  if (row) return cursor - width
-  if (onCards || !cards) return cursor
-  const lastCardRow = Math.floor((cards - 1) / perLine)
-  return Math.min(lastCardRow * perLine + col * span, cards - 1)
+  if (dir === "right") return col < line.size - 1 ? cursor + 1 : cursor
+  const to = lines[dir === "down" ? at + 1 : at - 1]
+  if (!to) return cursor
+  const x = col * line.span
+  return to.first + Math.min(Math.floor(x / to.span), to.size - 1)
 }
 
+// One grid line. Names are padded to the widest in their column, so the
+// status glyphs line up down the strip.
 const GridLine = ({
   line,
   first,
   cursor,
   cell,
+  nameW,
   focused,
 }: {
   line: Row[]
   first: number
   cursor: number
   cell: number
+  nameW: number[]
   focused: boolean
 }) => (
   // A cell is a card column, less the one-cell gap between cards, so the
@@ -206,6 +225,7 @@ const GridLine = ({
       const active = first + j === cursor
       const label = labelOf(r)
       const extra = headline(r.record)
+      const room = Math.max(1, Math.min(nameW[j], cell - 1 - MARK - 4))
       return (
         <Box
           key={r.service.id}
@@ -217,9 +237,11 @@ const GridLine = ({
           <Marker active={active} focused={focused} />
           {/* A cell too narrow for its text cuts it with an ellipsis rather
               than wrapping a name onto a second line. */}
-          <Text color={INK} bold wrap="truncate-end">
-            {r.service.name}
-          </Text>
+          <Box width={room} flexShrink={0}>
+            <Text color={INK} bold wrap="truncate-end">
+              {r.service.name}
+            </Text>
+          </Box>
           <Text>{"  "}</Text>
           {r.record ? (
             <Text color={TONE[label.tone]} wrap="truncate-end">
@@ -230,7 +252,7 @@ const GridLine = ({
           )}
           {extra ? (
             <Text color={INK} wrap="truncate-end">
-              {" "}
+              {"  "}
               {extra}
             </Text>
           ) : null}
@@ -240,9 +262,16 @@ const GridLine = ({
   </Box>
 )
 
-// One band per card line or grid line. `first` is the cursor index of the
-// band's first service, `size` how many services it holds.
-type Band = { height: number; first: number; size: number }
+// A band is one line on screen: a card line, a grid line, or a blank that
+// sets a group apart. `first` is the cursor index of its first service and
+// `size` how many it holds, none for a blank.
+type Band = {
+  key: string
+  height: number
+  first: number
+  size: number
+  draw: () => ReactNode
+}
 type Span = { start: number; end: number }
 
 const holds = (b: Band, cursor: number) =>
@@ -286,33 +315,123 @@ const windowOf = (bands: Band[], cursor: number, room: number): Span => {
 }
 
 const servicesIn = (bands: Band[]) => bands.reduce((sum, b) => sum + b.size, 0)
+const linesIn = (bands: Band[]) => bands.reduce((sum, b) => sum + b.height, 0)
 
-// The services the windows left out, so a scrolled board never hides one
-// silently. Walking order runs cards then grid, so a card cut below the window
-// is "below" even though the grid follows it on screen.
-const offscreen = (
-  cards: Band[],
-  cardSpan: Span,
-  grid: Band[],
-  gridSpan: Span,
-): string => {
-  const above =
-    servicesIn(cards.slice(0, cardSpan.start)) +
-    servicesIn(grid.slice(0, gridSpan.start))
-  const below =
-    servicesIn(cards.slice(cardSpan.end)) + servicesIn(grid.slice(gridSpan.end))
-  return [
-    above ? `${above} more above` : "",
-    below ? `${below} more below` : "",
+// The pieces of the board for `rows` at `width`, before any window is taken:
+// the card lines, then the grid's (the strip, or the one line it folds to,
+// and the manual group after a blank).
+const layout = (
+  rows: Row[],
+  width: number,
+  sorted: boolean,
+  okHidden: number,
+  render: {
+    cursor: number
+    focused: boolean
+  } = { cursor: -1, focused: false },
+) => {
+  const { cards, strip, manual } = boardGroups(rows, sorted)
+  const { perLine, tile } = tiles(width)
+  const grid = gridOf([...strip, ...manual], width, tile, perLine, sorted)
+  const cardBands: Band[] = chunk(cards, perLine).map((line, n) => ({
+    key: `c${n}`,
+    height: TILE_LINES,
+    first: n * perLine,
+    size: line.length,
+    draw: () => (
+      <Box key={`c${n}`} gap={1} flexShrink={0}>
+        {line.map((card, j) => (
+          <Tile
+            key={card.service.id}
+            row={card}
+            active={n * perLine + j === render.cursor}
+            width={tile}
+            focused={render.focused}
+          />
+        ))}
+      </Box>
+    ),
+  }))
+  const gridGroup = (group: Row[], start: number, tag: string): Band[] => {
+    const lines = chunk(group, grid.across)
+    const nameW = Array.from({ length: grid.across }, (_, j) =>
+      widest(lines.flatMap((l) => (l[j] ? [l[j].service.name] : []))),
+    )
+    return lines.map((line, n) => ({
+      key: `${tag}${n}`,
+      height: 1,
+      first: start + n * grid.across,
+      size: line.length,
+      draw: () => (
+        <GridLine
+          key={`${tag}${n}`}
+          line={line}
+          first={start + n * grid.across}
+          cursor={render.cursor}
+          cell={grid.cell}
+          nameW={nameW}
+          focused={render.focused}
+        />
+      ),
+    }))
+  }
+  const blank = (key: string): Band => ({
+    key,
+    height: 1,
+    first: -1,
+    size: 0,
+    draw: () => <Text key={key}> </Text>,
+  })
+  // The strip folded to one line: how many are ok, and the key that shows
+  // them.
+  const folded: Band[] =
+    okHidden && !strip.length
+      ? [
+          {
+            key: "ok",
+            height: 1,
+            first: -1,
+            size: 0,
+            draw: () => (
+              <Box key="ok" paddingLeft={MARK} flexShrink={0}>
+                <Text color={TONE.success}>● </Text>
+                <Text color={INK}>{okHidden} ok</Text>
+                <Text color={colors.muted}> · z show</Text>
+              </Box>
+            ),
+          },
+        ]
+      : []
+  const stripBands = [...gridGroup(strip, cards.length, "s"), ...folded]
+  const manualBands = gridGroup(manual, cards.length + strip.length, "m")
+  const gridBands = [
+    ...stripBands,
+    ...(stripBands.length && manualBands.length ? [blank("gm")] : []),
+    ...manualBands,
   ]
-    .filter(Boolean)
-    .join(" · ")
+  const cardsRight = perLine * (tile + 1) - 1
+  return { cardBands, gridBands, cards, cardsRight }
 }
 
-// `rows` arrive in the board's walking order (cards, then the grid), so the
-// cursor index reads straight across both. The grid takes the lines it needs
-// first, short of crowding out every card; the cards scroll in what is left.
-// Whatever either part cannot show is counted on the line between them.
+// Whether the board fits `height` lines as it is, every ok service in the
+// strip: when it does not, the strip folds to one line before any card is
+// scrolled off.
+export const boardFits = (
+  rows: Row[],
+  width: number,
+  sorted: boolean,
+  height: number,
+): boolean => {
+  const { cardBands, gridBands } = layout(rows, width, sorted, 0)
+  const between = cardBands.length && gridBands.length ? 1 : 0
+  return linesIn(cardBands) + between + linesIn(gridBands) <= height
+}
+
+// `rows` arrive in the board's walking order (cards, the strip, the manual
+// group), so the cursor index reads straight across all three. The grid
+// takes the lines it needs first, short of crowding out every card; the cards
+// scroll in what is left. Whatever is off screen is counted at the bottom
+// right of the card grid.
 export const BoardOverview = ({
   rows,
   cursor,
@@ -322,96 +441,61 @@ export const BoardOverview = ({
   width,
   focused,
   empty,
+  okHidden = 0,
 }: OverviewProps) => {
   const [ref, height] = useMeasuredHeight()
-  const inner = width
-  // Until every service has answered, all of them sit in the grid; trouble
-  // moves into cards in one step once the sort lands, so the frame never
-  // reshuffles service by service.
-  const cards = sorted ? rows.filter(isCard) : []
-  const rest = sorted ? rows.filter((r) => !isCard(r)) : rows
-  const { perLine, tile } = tiles(inner)
-  const grid = gridLines(rest, inner, tile, perLine, sorted)
-  const cardBands: Band[] = []
-  for (let i = 0; i < cards.length; i += perLine)
-    cardBands.push({
-      height: TILE_LINES,
-      first: i,
-      size: Math.min(perLine, cards.length - i),
-    })
-  const gridBands: Band[] = grid.lines.map((line, n) => ({
-    height: 1,
-    first: cards.length + n * grid.lines[0].length,
-    size: line.length,
-  }))
+  const { cardBands, gridBands, cards, cardsRight } = layout(
+    rows,
+    width,
+    sorted,
+    okHidden,
+    { cursor, focused },
+  )
   const onGrid = cursor >= cards.length
-  // `reserve` lines are kept for the break before the grid, or for the scroll
-  // note, which takes a blank of its own under the cards.
-  const fit = (reserve: number) => {
-    const budget = Math.max(0, height - (hidden.length ? 2 : 0) - reserve)
-    const gridRoom = Math.min(
-      gridBands.length,
-      Math.max(
-        onGrid ? 1 : 0,
-        budget - (cardBands.length && !onGrid ? TILE_LINES : 0),
-      ),
-    )
-    const cardSpan = windowOf(cardBands, cursor, budget - gridRoom)
-    const gridSpan = windowOf(gridBands, cursor, gridRoom)
-    const shownCards = cardBands.slice(cardSpan.start, cardSpan.end)
-    const shownGrid = gridBands.slice(gridSpan.start, gridSpan.end)
-    const scrolled =
-      shownCards.length < cardBands.length ||
-      shownGrid.length < gridBands.length
-    return { cardSpan, gridSpan, shownCards, shownGrid, scrolled }
-  }
-  const loose = fit(1)
-  const { cardSpan, gridSpan, shownCards, shownGrid, scrolled } =
-    loose.scrolled && loose.shownCards.length ? fit(2) : loose
+  // One line is always kept between the cards and the grid: blank, or the
+  // scroll note at its right end.
+  const budget = Math.max(0, height - (hidden.length ? 2 : 0) - 1)
+  const gridRoom = Math.min(
+    linesIn(gridBands),
+    Math.max(
+      onGrid ? 1 : 0,
+      budget - (cardBands.length && !onGrid ? TILE_LINES : 0),
+    ),
+  )
+  const cardSpan = windowOf(cardBands, cursor, budget - gridRoom)
+  const gridSpan = windowOf(gridBands, cursor, gridRoom)
+  const shownCards = cardBands.slice(cardSpan.start, cardSpan.end)
+  const shownGrid = gridBands.slice(gridSpan.start, gridSpan.end)
+  const above =
+    servicesIn(cardBands.slice(0, cardSpan.start)) +
+    servicesIn(gridBands.slice(0, gridSpan.start))
+  const below =
+    servicesIn(cardBands.slice(cardSpan.end)) +
+    servicesIn(gridBands.slice(gridSpan.end))
+  const scroll = [
+    above ? `${above} more above` : "",
+    below ? `${below} more below` : "",
+    above || below ? "↑↓ scroll" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ")
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box ref={ref} flexDirection="column" flexGrow={1} overflow="hidden">
         {rows.length ? null : <Empty text={empty} />}
-        {shownCards.map((band) => (
-          <Box key={band.first} gap={1} flexShrink={0}>
-            {cards.slice(band.first, band.first + band.size).map((card, j) => (
-              <Tile
-                key={card.service.id}
-                row={card}
-                active={band.first + j === cursor}
-                width={tile}
-                focused={focused}
-              />
-            ))}
-          </Box>
-        ))}
-        {scrolled ? (
+        {shownCards.map((band) => band.draw())}
+        {scroll ? (
           <Box
-            paddingLeft={MARK}
+            width={Math.min(width, cardsRight)}
+            justifyContent="flex-end"
             flexShrink={0}
-            marginTop={shownCards.length ? 1 : 0}
           >
-            <Text color={colors.muted}>
-              {offscreen(cardBands, cardSpan, gridBands, gridSpan)}
-              {" · ↑↓ scroll"}
-            </Text>
+            <Text color={colors.muted}>{scroll}</Text>
           </Box>
         ) : shownCards.length && shownGrid.length ? (
           <Text> </Text>
         ) : null}
-        {shownGrid.map((band) => (
-          <GridLine
-            key={band.first}
-            line={rest.slice(
-              band.first - cards.length,
-              band.first - cards.length + band.size,
-            )}
-            first={band.first}
-            cursor={cursor}
-            cell={grid.cell}
-            focused={focused}
-          />
-        ))}
+        {shownGrid.map((band) => band.draw())}
         {hidden.length ? (
           <Box marginTop={rows.length ? 1 : 0} flexShrink={0}>
             <HiddenNote parts={hidden} />
