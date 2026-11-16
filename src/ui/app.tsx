@@ -7,12 +7,22 @@ import type { Source } from "../source.js"
 import { linkTarget, openInBrowser, type Opener } from "../open-url.js"
 import { DetailBody } from "./detail.js"
 import { HelpOverlay } from "./help.js"
+import {
+  COLLAPSE_STEPS,
+  FRAME_MS,
+  canAnimate,
+  collapseHeights,
+  filterFrames,
+  stripFrames,
+  type Frame as MotionFrame,
+} from "./motion.js"
 import { SearchField } from "./search.js"
 import { fitHints } from "./fit-hints.js"
 import { FRAME_ROWS, Frame, TEXT_COLUMN, type Hint } from "./frame.js"
 import { overviewSegments, statusSegment } from "./header.js"
 import {
   BoardOverview,
+  type Motion,
   TILE_LINES,
   boardFits,
   boardShape,
@@ -23,6 +33,7 @@ import { ListOverview } from "./overview-list.js"
 import {
   FILTERS,
   FILTER_FULL,
+  isCard,
   glyphOf,
   filterWidth,
   emptyLine,
@@ -84,11 +95,14 @@ export const App = ({
   source,
   initialDetail,
   openUrl = openInBrowser,
+  animate = canAnimate(),
 }: {
   source: Source
   initialDetail?: string
   // How `o` reaches the browser; tests pass their own.
   openUrl?: Opener
+  // Whether layout changes move; off without a terminal to see them.
+  animate?: boolean
 }) => {
   const { columns, rows: height } = useWindowSize()
   const [records, setRecords] = useState<Record<string, ServiceRecord>>({})
@@ -100,6 +114,15 @@ export const App = ({
     source.services.map((s) => s.id),
   )
   const [sorted, setSorted] = useState(false)
+  const sortedRef = useRef(false)
+  sortedRef.current = sorted
+  // The first load settles in steps on the board: every service has
+  // answered once `allIn`, each ok one collapses to its line where it
+  // stands, then one step moves the lines to the strip and the sort lands.
+  const [allIn, setAllIn] = useState(false)
+  const [steps, setSteps] = useState<Record<string, number>>({})
+  const [closing, setClosing] = useState(false)
+  const finalOrder = useRef<string[]>([])
   const [view, setView] = useState<View>(source.view ?? "board")
   const [sort, setSort] = useState<Sort>(source.sort ?? "status")
   // The ok services: shown, hidden by `z`, or left to the board, which
@@ -129,8 +152,9 @@ export const App = ({
           })),
       })
       .then((all) => {
-        setOrder(worstFirst(all).map((record) => record.id))
-        setSorted(true)
+        finalOrder.current = worstFirst(all).map((record) => record.id)
+        if (!sortedRef.current) return setAllIn(true)
+        setOrder(finalOrder.current)
         setLoading(false)
         setUpdatedAt(new Date())
       })
@@ -273,6 +297,129 @@ export const App = ({
     selected.current = visible[cursor]?.service.id ?? null
   }, [shape, cursor])
 
+  // ── Motion ──────────────────────────────────────────────────────────
+  const onBoard = animate && view === "board"
+  const settling = onBoard && !sorted
+  const isLine = (r?: ServiceRecord) =>
+    r !== undefined && (r.indicator === "none" || r.indicator === "link")
+  const recordsRef = useRef(records)
+  recordsRef.current = records
+
+  const finish = () => {
+    setOrder(finalOrder.current)
+    setSorted(true)
+    setClosing(false)
+    setLoading(false)
+    setUpdatedAt(new Date())
+  }
+
+  // Each answered ok card steps down to its line on one shared clock.
+  useEffect(() => {
+    if (!settling) return
+    const timer = setInterval(() => {
+      setSteps((prev) => {
+        let next: Record<string, number> | null = null
+        for (const r of Object.values(recordsRef.current)) {
+          const at = prev[r.id] ?? 0
+          if (isLine(r) && at < COLLAPSE_STEPS)
+            (next ??= { ...prev })[r.id] = at + 1
+        }
+        return next ?? prev
+      })
+    }, FRAME_MS)
+    return () => clearInterval(timer)
+  }, [settling])
+
+  // Everyone has answered: once the last collapse is done, one step moves
+  // the lines to the strip, then the sort lands.
+  useEffect(() => {
+    if (!allIn || sorted) return
+    if (!settling) return finish()
+    const collapsing = Object.values(records).some(
+      (r) => isLine(r) && (steps[r.id] ?? 0) < COLLAPSE_STEPS,
+    )
+    if (collapsing) return
+    if (!closing) return setClosing(true)
+    const timer = setTimeout(finish, FRAME_MS)
+    return () => clearTimeout(timer)
+  }, [allIn, sorted, settling, steps, records, closing])
+
+  // Filter changes and `z` on a settled board: a few frames between the old
+  // layout and the new one, set in the same render as the change.
+  const [play, setPlay] = useState<{
+    frames: MotionFrame[]
+    at: number
+  } | null>(null)
+  const [seen, setSeen] = useState({ tab, folded })
+  const lastVisible = useRef(visible)
+  if (seen.tab !== tab || seen.folded !== folded) {
+    setSeen({ tab, folded })
+    if (onBoard && sorted) {
+      const before = lastVisible.current
+      const stripLines = (rs: Row[]) => {
+        const cards = rs.filter(isCard).length
+        const manual = rs.filter((r) => r.record?.indicator === "link").length
+        const strip = rs.length - cards - manual
+        return boardShape(rs, bodyW, true).lines.filter(
+          (l) => l.first >= cards && l.first < cards + strip,
+        ).length
+      }
+      const frames =
+        seen.tab !== tab
+          ? filterFrames(before, visible, isCard)
+          : folded
+            ? stripFrames(before, stripLines(before), true)
+            : stripFrames(visible, stripLines(visible), false)
+      setPlay(frames.length ? { frames, at: 0 } : null)
+    }
+  }
+  useEffect(() => {
+    lastVisible.current = visible
+  })
+  useEffect(() => {
+    if (!play) return
+    const timer = setTimeout(
+      () =>
+        setPlay((p) =>
+          p && p.at + 1 < p.frames.length ? { ...p, at: p.at + 1 } : null,
+        ),
+      FRAME_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [play])
+
+  // A key press never waits on motion: it lands on the final state first.
+  const settleNow = () => {
+    if (play) setPlay(null)
+    if (!settling) return
+    setSteps(
+      Object.fromEntries(
+        Object.values(records)
+          .filter(isLine)
+          .map((r) => [r.id, COLLAPSE_STEPS]),
+      ),
+    )
+    if (allIn) finish()
+  }
+
+  // What the board draws this frame, and where the cursor is among it.
+  const frame = play?.frames[play.at]
+  const boardRows =
+    frame?.rows ??
+    (settling && closing ? visible.filter((r) => !isLine(r.record)) : visible)
+  const boardMotion: Motion | undefined = frame
+    ? frame.motion
+    : settling
+      ? {
+          heights: collapseHeights(steps),
+          strip: closing ? visible.filter((r) => isLine(r.record)) : undefined,
+        }
+      : undefined
+  const boardCursor =
+    boardRows === visible
+      ? cursor
+      : boardRows.findIndex((r) => r.service.id === visible[cursor]?.service.id)
+
   const openDetail = (id: string) => {
     setDetailId(id)
     if (!records[id]?.historyLoaded) loadDetail(id)
@@ -293,6 +440,7 @@ export const App = ({
   // move between the filters, the services and a service's page, ↑↓ within
   // the one that has focus. The board keeps its own ←→ between cards.
   useInput((input, key) => {
+    settleNow()
     if (typing) {
       // The search owns every other key while it is being typed; ↑↓ still
       // walk what it matches.
@@ -579,9 +727,9 @@ export const App = ({
             />
             <Box ref={paneRef} flexDirection="column" flexGrow={1}>
               <Overview
-                rows={visible}
+                rows={view === "board" ? boardRows : visible}
                 all={rows}
-                cursor={cursor}
+                cursor={view === "board" ? boardCursor : cursor}
                 sorted={sorted}
                 sort={sort}
                 hidden={hidden}
@@ -590,6 +738,7 @@ export const App = ({
                 focused={!onFilters}
                 empty={empty}
                 okHidden={view === "board" ? narrowed.hidden.folded : 0}
+                motion={view === "board" ? boardMotion : undefined}
               />
             </Box>
           </Box>

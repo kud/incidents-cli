@@ -44,19 +44,74 @@ const Tile = ({
   active,
   width,
   focused,
+  height = TILE_LINES,
 }: {
   row: Row
   active: boolean
   width: number
   focused: boolean
+  // Part-way through a transition: fewer rows, cut at the bottom. At one row
+  // the card is its own line, as the ok strip draws it.
+  height?: number
 }) => {
   const label = labelOf(row)
   const inner = width - 4
+  if (height <= 1)
+    return (
+      <Box width={width} height={1} flexShrink={0} paddingLeft={MARK}>
+        <Text color={INK} bold wrap="truncate-end">
+          {row.service.name}
+        </Text>
+        <Text>{"  "}</Text>
+        <Text color={TONE[label.tone]}>{label.text}</Text>
+      </Box>
+    )
+  // The card's rows, top to bottom; a card part-way through collapsing
+  // keeps the first ones that fit inside its border.
+  const lines = [
+    <Box key="t" width={inner} gap={GAP}>
+      <Box flexGrow={1} flexShrink={1}>
+        <Text color={INK} bold wrap="truncate-end">
+          {row.service.name}
+        </Text>
+      </Box>
+      <Box flexShrink={0}>
+        {row.record ? (
+          <Text color={TONE[label.tone]}>{label.text}</Text>
+        ) : (
+          <Busy label="checking" />
+        )}
+      </Box>
+    </Box>,
+    <Text key="b"> </Text>,
+    ...(row.record
+      ? [
+          <Text key="h" color={INK} wrap="truncate-end">
+            {headline(row.record)}
+          </Text>,
+          <Box key="c" width={inner} gap={GAP}>
+            <Box flexGrow={1} flexShrink={1}>
+              <Text color={INK} wrap="truncate-end">
+                {affected(row.record).join(", ") || " "}
+              </Text>
+            </Box>
+            <Box flexShrink={0}>
+              <Text color={colors.muted}>{ageText(row.record)}</Text>
+            </Box>
+          </Box>,
+        ]
+      : // A card still being read: its name is known, the rest shimmers
+        // where the headline and the components will land.
+        [
+          <Pending key="h" width={pendingWidth(inner, 0)} />,
+          <Pending key="c" width={pendingWidth(Math.floor(inner / 2), 1)} />,
+        ]),
+  ]
   return (
     <Box
       width={width}
       flexShrink={0}
-      height={TILE_LINES}
+      height={height}
       flexDirection="column"
       borderStyle={active ? "bold" : "round"}
       borderColor={active ? (focused ? CURSOR : SOFT) : colors.track}
@@ -67,45 +122,7 @@ const Tile = ({
       backgroundColor={active && focused ? BAND : undefined}
       paddingX={1}
     >
-      <Box width={inner} gap={GAP}>
-        <Box flexGrow={1} flexShrink={1}>
-          <Text color={INK} bold wrap="truncate-end">
-            {row.service.name}
-          </Text>
-        </Box>
-        <Box flexShrink={0}>
-          {row.record ? (
-            <Text color={TONE[label.tone]}>{label.text}</Text>
-          ) : (
-            <Busy label="checking" />
-          )}
-        </Box>
-      </Box>
-      <Text> </Text>
-      {row.record ? (
-        <>
-          <Text color={INK} wrap="truncate-end">
-            {headline(row.record)}
-          </Text>
-          <Box width={inner} gap={GAP}>
-            <Box flexGrow={1} flexShrink={1}>
-              <Text color={INK} wrap="truncate-end">
-                {affected(row.record).join(", ") || " "}
-              </Text>
-            </Box>
-            <Box flexShrink={0}>
-              <Text color={colors.muted}>{ageText(row.record)}</Text>
-            </Box>
-          </Box>
-        </>
-      ) : (
-        // A card still being read: its name is known, the rest shimmers
-        // where the headline and the components will land.
-        <>
-          <Pending width={pendingWidth(inner, 0)} />
-          <Pending width={pendingWidth(Math.floor(inner / 2), 1)} />
-        </>
-      )}
+      {lines.slice(0, Math.max(0, height - 2))}
     </Box>
   )
 }
@@ -340,6 +357,15 @@ const linesIn = (bands: Band[]) => bands.reduce((sum, b) => sum + b.height, 0)
 // The pieces of the board for `rows` at `width`, before any window is taken:
 // the card lines, then the grid's (the strip, or the one line it folds to,
 // and the manual group after a blank).
+// A frame part-way through a transition: per-card heights (one row is the
+// card's line), the services already handed to the strip while the first
+// load settles, and how many strip lines show.
+export type Motion = {
+  heights?: Record<string, number>
+  strip?: Row[]
+  stripLines?: number
+}
+
 const layout = (
   rows: Row[],
   width: number,
@@ -349,13 +375,17 @@ const layout = (
     cursor: number
     focused: boolean
   } = { cursor: -1, focused: false },
+  motion: Motion = {},
 ) => {
-  const { cards, strip, manual } = boardGroups(rows, sorted)
+  const groups = boardGroups(rows, sorted)
+  const { cards, manual } = groups
+  const strip = sorted ? groups.strip : (motion.strip ?? [])
+  const heightOf = (r: Row) => motion.heights?.[r.service.id] ?? TILE_LINES
   const { perLine, tile } = tiles(width)
   const grid = gridOf([...strip, ...manual], width, tile, perLine, sorted)
   const cardBands: Band[] = chunk(cards, perLine).map((line, n) => ({
     key: `c${n}`,
-    height: TILE_LINES,
+    height: Math.max(...line.map(heightOf)),
     first: n * perLine,
     size: line.length,
     draw: () => (
@@ -367,6 +397,7 @@ const layout = (
             active={n * perLine + j === render.cursor}
             width={tile}
             focused={render.focused}
+            height={heightOf(card)}
           />
         ))}
       </Box>
@@ -422,7 +453,10 @@ const layout = (
           },
         ]
       : []
-  const stripBands = [...gridGroup(strip, cards.length, "s"), ...folded]
+  const stripBands = [
+    ...gridGroup(strip, cards.length, "s").slice(0, motion.stripLines),
+    ...folded,
+  ]
   const manualBands = gridGroup(manual, cards.length + strip.length, "m")
   const gridBands = [
     ...stripBands,
@@ -462,6 +496,7 @@ export const BoardOverview = ({
   focused,
   empty,
   okHidden = 0,
+  motion,
 }: OverviewProps) => {
   const [ref, height] = useMeasuredHeight()
   const { cardBands, gridBands, cards, cardsRight } = layout(
@@ -470,6 +505,7 @@ export const BoardOverview = ({
     sorted,
     okHidden,
     { cursor, focused },
+    motion,
   )
   const onGrid = cursor >= cards.length
   // One line is always kept between the cards and the grid: blank, or the

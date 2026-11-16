@@ -103,7 +103,7 @@ const REST = 10
 // Bars vary in length the way titles do, never past the title column.
 const SPREAD = [0.62, 0.44, 0.78, 0.52, 0.7, 0.4]
 
-const moving = () =>
+export const moving = () =>
   process.stdout?.isTTY === true &&
   !process.env["NO_MOTION"] &&
   !process.env["REDUCE_MOTION"]
@@ -221,4 +221,6 @@ export type OverviewProps = {
   empty: string
   // How many ok services the board folded into one line.
   okHidden?: number
+  // A frame part-way through a transition, on the board.
+  motion?: import("./overview-board.js").Motion
 }
