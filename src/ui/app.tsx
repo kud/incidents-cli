@@ -24,6 +24,7 @@ import {
 import { ListOverview } from "./overview-list.js"
 import {
   FILTERS,
+  FILTER_FULL,
   glyphOf,
   filterWidth,
   hiddenParts,
@@ -34,7 +35,7 @@ import {
 } from "./overview-model.js"
 import type { Sort } from "../sort.js"
 import type { View } from "../view.js"
-import { FRAME_SIDES, TONE } from "./overview-parts.js"
+import { FRAME_SIDES, MARK, TONE } from "./overview-parts.js"
 import {
   FilterList,
   PaneTitle,
@@ -267,7 +268,7 @@ export const App = ({
   })
 
   const filterW = filterWidth(columns)
-  const full = filterW > 8
+  const full = filterW === FILTER_FULL
   const bodyW = Math.max(
     20,
     columns - FRAME_SIDES - filterW - BEFORE_RULE - 1 - AFTER_RULE,
@@ -427,8 +428,12 @@ export const App = ({
       )}
       <Box flexDirection="row" flexGrow={1}>
         <Box flexDirection="column" width={filterW} flexShrink={0}>
-          <PaneTitle label="Filters" focused={onFilters} width={filterW} />
-          <Box height={1} flexShrink={0} />
+          <PaneTitle
+            label="Filters"
+            focused={onFilters}
+            width={filterW}
+            indent={TEXT_COLUMN}
+          />
           <FilterList
             items={items}
             active={tab}
@@ -441,8 +446,12 @@ export const App = ({
         <Rule />
         <Box width={AFTER_RULE} flexShrink={0} />
         <Box flexDirection="column" width={bodyW} flexShrink={0}>
-          <PaneTitle label={bodyTitle} focused={!onFilters} width={bodyW} />
-          <Box height={1} flexShrink={0} />
+          <PaneTitle
+            label={bodyTitle}
+            focused={!onFilters}
+            width={bodyW}
+            indent={MARK}
+          />
           <Overview
             rows={visible}
             all={rows}

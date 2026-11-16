@@ -113,9 +113,11 @@ describe("list alignment", () => {
     assert.ok(name > 0, done)
     assert.equal(at("Declared status only"), name, done)
     assert.equal(at("❯ Acme Cloud"), name - 2, done)
-    // The pane title's pill starts in the pane's first column, its label
-    // one cell in.
-    assert.equal(at("Services"), name - 1, done)
+    // The pane title starts on the names' column, the filters' title on the
+    // glyphs', and the keys under it.
+    assert.equal(at("Services"), name, done)
+    assert.equal(at("Filters"), at("◇"), done)
+    assert.equal(at("↑↓ move"), at("Filters"), done)
     app.unmount()
   })
 })

@@ -1,5 +1,6 @@
 import { Box, Text } from "ink"
-import { colors, palette } from "@kud/ink-ui"
+import type { ReactNode } from "react"
+import { colors } from "@kud/ink-ui"
 import { FILTER_FULL, type FilterId } from "./overview-model.js"
 import { BAND, INK, pad } from "./overview-parts.js"
 
@@ -21,38 +22,49 @@ export type FilterItem = {
   color: string
 }
 
-// A pane's title: a filled pill in the accent while the pane holds focus,
-// plain text when it does not. The label sits one cell in either way, so it
-// never moves when focus changes.
+// A pane's title over the row it leaves blank. With focus the label is bold
+// in the terminal's own bright text, underlined by a run of `▔` in the
+// accent; without, it is muted and the underline row stays blank. A filled
+// background means one thing on these screens, the selected row, so focus
+// never borrows it. The label starts at `indent`, the pane's text column,
+// and never moves when focus changes. `extra` rides after the label on the
+// same row: a count, or the search.
 export const PaneTitle = ({
   label,
   count,
   focused,
   width,
+  indent = 1,
+  extra,
 }: {
   label: string
   count?: number
   focused: boolean
   width?: number
-}) => {
-  // A slim column drops the pill's closing space rather than the label's end.
-  const text =
-    width !== undefined && label.length + 2 > width ? ` ${label}` : ` ${label} `
-  return (
-    <Box width={width} flexShrink={0}>
+  indent?: number
+  extra?: ReactNode
+}) => (
+  <Box flexDirection="column" width={width} flexShrink={0}>
+    <Box flexShrink={0}>
       <Text wrap="truncate-end">
-        {focused ? (
-          <Text backgroundColor={colors.accent} color={palette.ground} bold>
-            {text}
-          </Text>
-        ) : (
-          <Text color={INK}>{text}</Text>
-        )}
-        {count ? <Text color={INK}>{` ${count}`}</Text> : null}
+        {" ".repeat(indent)}
+        <Text color={focused ? INK : colors.muted} bold={focused}>
+          {label}
+        </Text>
+        {count ? (
+          <Text color={focused ? INK : colors.muted}>{`  ${count}`}</Text>
+        ) : null}
       </Text>
+      {extra}
     </Box>
-  )
-}
+    <Text wrap="truncate-end">
+      {" ".repeat(indent)}
+      <Text color={colors.accent}>
+        {focused ? "▔".repeat([...label].length) : " "}
+      </Text>
+    </Text>
+  </Box>
+)
 
 // The one-cell rule between the filter column and the body.
 export const Rule = () => (

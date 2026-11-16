@@ -9,21 +9,24 @@ import { FilterList, PaneTitle } from "../src/ui/filter-column.js"
 chalk.level = 3
 
 describe("pane title", () => {
-  it("fills the focused title as an accent pill in the base colour", () => {
+  const ACCENT = "\u001b[38;2;255;140;0m"
+  const MUTED = "\u001b[38;2;117;118;126m"
+
+  it("marks focus with bold bright text over an accent underline, no fill", () => {
     const { lastFrame, unmount } = render(
       <PaneTitle label="History" count={40} focused width={30} />,
     )
     const out = lastFrame() ?? ""
     unmount()
-    // Accent #FF8C00 behind, base #1A1B27 on top, bold, a space either side.
-    assert.ok(out.includes("\u001b[48;2;255;140;0m"))
-    assert.ok(out.includes("\u001b[38;2;26;27;39m"))
+    assert.ok(!out.includes("\u001b[48;"), "no background fill")
     assert.ok(out.includes("\u001b[1m"))
-    assert.doesNotMatch(out, /▍/)
-    assert.match(stripVTControlCharacters(out), /^ History {2}40/)
+    assert.ok(out.includes(`${ACCENT}▔▔▔▔▔▔▔`), out)
+    const [title, rule] = stripVTControlCharacters(out).split("\n")
+    assert.match(title, /^ History {2}40/)
+    assert.equal(rule.trimEnd(), " ▔▔▔▔▔▔▔")
   })
 
-  it("leaves the unfocused title plain, in the terminal's foreground", () => {
+  it("mutes the unfocused title and leaves its underline row blank", () => {
     const { lastFrame, unmount } = render(
       <PaneTitle label="Now" focused={false} width={30} />,
     )
@@ -31,9 +34,22 @@ describe("pane title", () => {
     unmount()
     assert.ok(!out.includes("\u001b[48;"))
     assert.ok(!out.includes("\u001b[1m"))
-    // The terminal's own foreground: no colour of its own.
-    assert.ok(!out.includes("\u001b[38;"))
-    assert.match(stripVTControlCharacters(out), /^ Now/)
+    assert.ok(out.includes(`${MUTED}Now`), out)
+    const [title, rule] = stripVTControlCharacters(out).split("\n")
+    assert.match(title, /^ Now/)
+    assert.equal(rule.trim(), "")
+  })
+
+  it("starts the label on the pane's text column", () => {
+    const { lastFrame, unmount } = render(
+      <PaneTitle label="Filters" focused width={20} indent={3} />,
+    )
+    const [title, rule] = stripVTControlCharacters(lastFrame() ?? "").split(
+      "\n",
+    )
+    unmount()
+    assert.equal(title.indexOf("Filters"), 3)
+    assert.equal(rule.indexOf("▔"), 3)
   })
 })
 

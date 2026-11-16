@@ -527,8 +527,13 @@ const Pane = ({
   children: ReactNode
 }) => (
   <Box flexDirection="column" width={width} flexShrink={0}>
-    <PaneTitle label={title} count={count} focused={focused} width={width} />
-    <Text> </Text>
+    <PaneTitle
+      label={title}
+      count={count}
+      focused={focused}
+      width={width}
+      indent={EDGE}
+    />
     {children}
   </Box>
 )
@@ -571,8 +576,7 @@ export const DetailBody = ({
       {width < SPLIT_MIN || !fits ? (
         // One pane, titled as the split's first, scrolling with the keys.
         <Box flexDirection="column" flexGrow={1}>
-          <PaneTitle label="Now" focused width={width} />
-          <Text> </Text>
+          <PaneTitle label="Now" focused width={width} indent={EDGE} />
           {record ? (
             <Scroller
               rows={sectionsRows(record, width, historyBusy)}
