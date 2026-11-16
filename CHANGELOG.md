@@ -4,6 +4,17 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.6.2 — 2026-11-16
+
+### Highlights
+
+- Switching filters now fades and folds away what leaves and fades in what arrives, in about 300ms; any key skips it. ([99896fe](https://github.com/kud/incidents-cli/commit/99896fec9cdc47c2816f6272303c0ffe8a830880))
+- Trouble and maintenance statuses are now tonal pills, major and critical get a strong pill, and ok and manual keep their glyph and word. ([372e508](https://github.com/kud/incidents-cli/commit/372e508a788f002f86404e4d3e2cc45c45ca5ce7))
+- A major card's red frame stays mostly red when another card is selected, so serious incidents remain visible. ([372e508](https://github.com/kud/incidents-cli/commit/372e508a788f002f86404e4d3e2cc45c45ca5ce7))
+- Card titles are always bold and no longer change with selection; the frame alone marks the selected card. ([c32aabd](https://github.com/kud/incidents-cli/commit/c32aabd0b7dd57f06991f379c12cb30a7a9e3b3e))
+
+---
+
 ## 0.6.1 — 2026-11-16
 
 ### Highlights
