@@ -242,7 +242,7 @@ describe("list keys", () => {
     await press(DOWN, 3)
     await press(ENTER)
     const detail = await until(frame, /Payouts/)
-    assert.match(detail, /Incidents\s+Copperleaf Pay/)
+    assert.match(detail, /Incidents › Copperleaf Pay/)
     await press(BACKSPACE)
     const back = await until(frame, /Declared status only/)
     assert.match(back, /4 of 21/)

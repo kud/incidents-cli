@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Box, Text, useInput, useWindowSize } from "ink"
+import { Box, useInput, useWindowSize } from "ink"
 import {
   FilterBar,
-  FooterHints,
-  PAGE_CHROME,
-  Page,
   colors,
   useAppKeys,
   useFilterMode,
   useListCursor,
   useTabs,
 } from "@kud/ink-ui"
-import { isClear, worstFirst, type ServiceRecord } from "../core/index.js"
+import { worstFirst, type ServiceRecord } from "../core/index.js"
 import { statusLabel } from "../labels.js"
 import type { Source } from "../source.js"
 import { DetailBody } from "./detail.js"
 import { fitHints } from "./fit-hints.js"
+import { FRAME_ROWS, Frame, TEXT_COLUMN, type Hint } from "./frame.js"
+import { overviewSegments, statusSegment } from "./header.js"
 import {
   BoardOverview,
   boardShape,
@@ -319,58 +318,45 @@ export const App = ({
     if (key.return && visible[cursor]) openDetail(visible[cursor].service.id)
   })
 
-  const trouble = Object.values(records).filter((r) => !isClear(r.indicator))
-  const stamp = (at: Date | null) => ({
-    text: `updated ${at?.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) ?? ""}`,
-    tone: "quiet" as const,
-  })
-  const updated = stamp(updatedAt)
-  const status = loading
-    ? {
-        text: updatedAt ? "↻ refreshing…" : "↻ checking…",
-        tone: updatedAt ? ("quiet" as const) : ("busy" as const),
-      }
-    : updated
-  const alert = trouble.length
-    ? `${trouble.length} declaring trouble`
-    : undefined
-  const critical = trouble.some((r) =>
-    ["major", "critical"].includes(r.indicator),
-  )
+  const BRAND = "◆ Incidents"
 
   if (detailId !== null) {
     const service = source.services.find((s) => s.id === detailId)
     const record = records[detailId]
     return (
-      <Page
-        fill
-        icon="◆"
-        title="Incidents"
-        scope={service?.name}
-        status={
+      <Frame
+        columns={columns}
+        rows={height}
+        brand={BRAND}
+        crumb={service?.name}
+        segments={[
           !record
-            ? { text: "↻ checking…", tone: "busy" }
-            : detailBusy
-              ? record.historyLoaded
-                ? { text: "↻ refreshing…", tone: "quiet" }
-                : { text: "↻ loading history…", tone: "busy" }
-              : stamp(detailAt ?? updatedAt)
-        }
-        page="nested"
-        help={false}
+            ? statusSegment({ loading: true, at: null })
+            : detailBusy && !record.historyLoaded
+              ? statusSegment({
+                  loading: true,
+                  at: null,
+                  busy: "↻ loading history…",
+                })
+              : statusSegment({
+                  loading: detailBusy,
+                  at: detailAt ?? updatedAt,
+                }),
+        ]}
         hints={[
           ["↑↓", "scroll"],
           ["r", "refresh"],
+          ["esc", "back"],
+          ["q", "quit"],
         ]}
       >
         <DetailBody
           record={record}
           width={Math.max(20, columns - FRAME_SIDES)}
-          // The frame, the title row, the blank under it and the keys.
-          height={Math.max(4, height - PAGE_CHROME - 1)}
+          height={Math.max(4, height - FRAME_ROWS)}
           historyBusy={detailBusy && !record?.historyLoaded}
         />
-      </Page>
+      </Frame>
     )
   }
 
@@ -381,7 +367,7 @@ export const App = ({
   // the body's title.
   const bodyTitle =
     full || tab === "all" ? "Services" : `Services · ${filterName}`
-  const hints: [string, string][] = onFilters
+  const hints: Hint[] = onFilters
     ? [
         ["↑↓", "filter"],
         ["⏎", "go"],
@@ -389,6 +375,7 @@ export const App = ({
         ["/", "search"],
         ["v", view === "list" ? "board" : "list"],
         ["r", "refresh"],
+        ["q", "quit"],
       ]
     : [
         ...(view === "board"
@@ -401,37 +388,43 @@ export const App = ({
         ["v", view === "list" ? "board" : "list"],
         ["s", sort === "status" ? "by name" : "by status"],
         ["r", "refresh"],
+        ["q", "quit"],
       ]
   // The keys share their row with the counter; at a narrow width the least
   // used ones drop rather than wrap: sort, fold, refresh, view, search.
   const counter = visible.length ? `${cursor + 1} of ${visible.length}` : ""
   const hintRoom =
-    columns - FRAME_SIDES - 3 - (counter ? 2 + counter.length : 0)
+    columns - 2 - TEXT_COLUMN - 1 - (counter ? 2 + counter.length : 0)
+  const typingHints: Hint[] = [...filterMode.hints, ["q", "quit"]]
   return (
-    <Page
-      fill
-      icon="◆"
-      title="Incidents"
-      scope={sort === "status" ? "by status ↓" : "by name"}
-      count={source.services.length}
-      noun="service"
-      status={status}
-      alert={alert}
-      critical={critical}
-      // No search open, no bar: the frame keeps its blank under the title.
-      filter={
-        term === null ? undefined : (
+    <Frame
+      columns={columns}
+      rows={height}
+      brand={BRAND}
+      segments={overviewSegments({
+        records: Object.values(records),
+        total: source.services.length,
+        sort,
+        loading,
+        at: updatedAt,
+      })}
+      hints={fitHints(
+        typing ? typingHints : hints,
+        hintRoom,
+        onFilters ? ["r", "v", "/"] : ["s", "z", "r", "v", "/"],
+      )}
+      counter={counter || undefined}
+    >
+      {term === null ? null : (
+        <Box paddingLeft={2}>
           <FilterBar
             term={term}
             typing={typing}
             caret={filterMode.caret}
             matches={term ? visible.length : undefined}
           />
-        )
-      }
-      page="root"
-      help={false}
-    >
+        </Box>
+      )}
       <Box flexDirection="row" flexGrow={1}>
         <Box flexDirection="column" width={filterW} flexShrink={0}>
           <PaneTitle label="Filters" focused={onFilters} width={filterW} />
@@ -464,26 +457,6 @@ export const App = ({
           />
         </Box>
       </Box>
-      {/* The page's own counter takes a row above the keys; here it rides at
-          the end of the keys' row, so the body keeps that line. */}
-      <Box paddingLeft={2} paddingRight={1} flexShrink={0}>
-        <Box flexGrow={1}>
-          <FooterHints
-            hints={fitHints(
-              typing ? filterMode.hints : hints,
-              hintRoom,
-              onFilters ? ["r", "v", "/"] : ["s", "z", "r", "v", "/"],
-            )}
-            page="root"
-            help={false}
-          />
-        </Box>
-        {visible.length ? (
-          <Box flexShrink={0} marginLeft={2}>
-            <Text dimColor>{counter}</Text>
-          </Box>
-        ) : null}
-      </Box>
-    </Page>
+    </Frame>
   )
 }
