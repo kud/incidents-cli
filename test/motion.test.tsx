@@ -6,11 +6,10 @@ import { App } from "../src/ui/app.js"
 import { MOCK_SERVICES, mockRecord } from "../src/mock.js"
 import { mockSource } from "../src/source.js"
 import {
-  COLLAPSE,
   FRAME_MS,
   canAnimate,
-  collapseHeights,
   filterFrames,
+  settleFrames,
   stripFrames,
 } from "../src/ui/motion.js"
 import { isCard, type Row } from "../src/ui/overview-model.js"
@@ -23,15 +22,36 @@ const rows: Row[] = MOCK_SERVICES.map((service) => ({
 }))
 
 describe("motion rules", () => {
-  it("steps a card to its line in three frames of at least 50ms", () => {
+  it("settles the first load in one dim-out, dim-in pass within 300ms", () => {
     assert.ok(FRAME_MS >= 50)
-    assert.deepEqual(COLLAPSE.slice(1), [5, 3, 1])
-    assert.ok((COLLAPSE.length - 1) * FRAME_MS <= 200)
-    assert.deepEqual(collapseHeights({ a: 1, b: 2, c: 9 }), {
-      a: 5,
-      b: 3,
-      c: 1,
-    })
+    const ok = rows.filter((r) => !isCard(r))
+    const sorted = [...rows].reverse()
+    const board = settleFrames(rows, sorted, ok)
+    assert.ok(board.length * FRAME_MS <= 300)
+    // The old layout, unsorted, all of it dim, its ok cards closing to lines.
+    assert.deepEqual(
+      board
+        .slice(0, 3)
+        .map((f) => [f.sorted, new Set(Object.values(f.motion.heights ?? {}))]),
+      [
+        [false, new Set([5])],
+        [false, new Set([3])],
+        [false, new Set([1])],
+      ],
+    )
+    for (const f of board.slice(0, 3))
+      assert.equal(Object.keys(f.motion.faded ?? {}).length, rows.length)
+    // Then the new layout, all of it dim, before the final frame.
+    const last = board.at(-1)!
+    assert.equal(last.rows, sorted)
+    assert.equal(last.sorted, undefined)
+    assert.equal(Object.keys(last.motion.faded ?? {}).length, rows.length)
+    // The list has nothing to collapse: one frame out, one in.
+    const list = settleFrames(rows, sorted, [])
+    assert.deepEqual(
+      list.map((f) => f.rows),
+      [rows, sorted],
+    )
   })
 
   it("dims and closes what leaves, then fades in what arrives, within 300ms", () => {
@@ -116,48 +136,53 @@ describe("motion rules", () => {
 })
 
 describe("first load, moving", () => {
-  const open = () => {
-    const { stdout, stdin } = terminal(160, 40)
-    const app = render(
-      <App source={{ ...mockSource(120), view: "board" }} animate />,
-      {
-        stdout: stdout as unknown as NodeJS.WriteStream,
-        stdin: stdin as unknown as NodeJS.ReadStream,
-        debug: true,
-        patchConsole: false,
-        exitOnCtrlC: false,
-      },
-    )
+  const open = (view: "board" | "list" = "board") => {
+    // Tall enough that the ok strip shows whole rather than folding.
+    const { stdout, stdin } = terminal(160, 60)
+    const app = render(<App source={{ ...mockSource(120), view }} animate />, {
+      stdout: stdout as unknown as NodeJS.WriteStream,
+      stdin: stdin as unknown as NodeJS.ReadStream,
+      debug: true,
+      patchConsole: false,
+      exitOnCtrlC: false,
+    })
     return { app, stdin, frame: () => stripVTControlCharacters(stdout.frame) }
   }
   const until = async (frame: () => string, pattern: RegExp) => {
-    for (let waited = 0; waited < 4000 && !pattern.test(frame()); waited += 5)
+    for (let waited = 0; waited < 5000 && !pattern.test(frame()); waited += 5)
       await tick(5)
     return frame()
   }
   // Sample Registry, third in config order, is ok.
-  const asLine = /^│[^│]*│ {4}Sample Registry {2}\uE0B6ok\uE0B4/m
+  const asLine = /Sample Registry +\uE0B6ok\uE0B4(?! [│┃])/
   const asCard = /[│┃] Sample Registry\s+\uE0B6ok\uE0B4 [│┃]/
 
-  it("collapses an ok card to its line in place while others still load", async () => {
+  it("keeps ok cards as cards until every service has answered, then lines", async () => {
     const { app, frame } = open()
-    const card = await until(frame, asCard)
-    assert.match(card, /checking/)
-    const line = await until(frame, asLine)
+    await until(frame, asCard)
+    // Watch the load to its end: while anything is still being read, the
+    // ok card stays a card.
+    let early = ""
+    while (!/updated/.test(frame())) {
+      const f = frame()
+      if (/checking/.test(f) && asLine.test(f)) early = f
+      await tick(5)
+    }
+    assert.equal(early, "", early)
+    const done = await until(frame, asLine)
     app.unmount()
-    assert.match(line, asLine, line)
-    // The others hold still: the major card is still first, nothing sorted.
-    assert.match(line, /checking/, line)
-    assert.ok(line.indexOf("Acme Cloud") < line.indexOf("Sample Registry"))
+    assert.match(done, asLine, done)
+    assert.doesNotMatch(done, asCard)
   })
 
   it("a key press lands on the final state at once", async () => {
     const { app, stdin, frame } = open()
-    await until(frame, asCard)
+    await until(frame, /updated/)
     stdin.press("j")
     await tick(15)
     const after = frame()
     app.unmount()
     assert.match(after, asLine, after)
+    assert.doesNotMatch(after, asCard)
   })
 })

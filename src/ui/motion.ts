@@ -16,24 +16,10 @@ export const canAnimate = (): boolean =>
   process.env.TERM !== "dumb" &&
   !process.env.CI
 
-// The rows a card passes through as it collapses to its line, by step:
-// whole, then 5, 3 and the line itself. Three frames, 150ms.
-export const COLLAPSE = [TILE_LINES, 5, 3, 1]
-export const COLLAPSE_STEPS = COLLAPSE.length - 1
-
-export const collapseHeights = (
-  steps: Record<string, number>,
-): Record<string, number> =>
-  Object.fromEntries(
-    Object.entries(steps).map(([id, step]) => [
-      id,
-      COLLAPSE[Math.min(step, COLLAPSE_STEPS)],
-    ]),
-  )
-
-// One frame of a transition: the rows the board draws (the old set while
-// leaving cards collapse, the new one while arriving cards open) and how.
-export type Frame = { rows: Row[]; motion: Motion }
+// One frame of a transition: the rows drawn (the old set while what leaves
+// dims, the new one while what arrives comes in), whether they are drawn in
+// their sorted layout, and how.
+export type Frame = { rows: Row[]; sorted?: boolean; motion: Motion }
 
 const ids = (rows: Row[]) => new Set(rows.map((r) => r.service.id))
 const heights = (rows: Row[], h: number) =>
@@ -72,6 +58,27 @@ export const filterFrames = (
           motion: { heights: heights(opening, h), faded: into },
         }))
       : []),
+  ]
+}
+
+// The first load landing. Until every service has answered, every one is a
+// card in config order and nothing moves; then the whole layout dims while
+// the cards that become lines (`collapsing`) close, 5, 3, then 1 row, and
+// the sorted layout comes in dim before the final frame. 200ms on the board;
+// the list, with nothing to collapse, dims out and in over 100ms.
+export const settleFrames = (
+  before: Row[],
+  after: Row[],
+  collapsing: Row[],
+): Frame[] => {
+  const out = flags(before)
+  return [
+    ...(collapsing.length ? [5, 3, 1] : [TILE_LINES]).map((h) => ({
+      rows: before,
+      sorted: false,
+      motion: { heights: heights(collapsing, h), faded: out },
+    })),
+    { rows: after, motion: { faded: flags(after) } },
   ]
 }
 

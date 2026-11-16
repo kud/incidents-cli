@@ -8,10 +8,9 @@ import { linkTarget, openInBrowser, type Opener } from "../open-url.js"
 import { DetailBody } from "./detail.js"
 import { HelpOverlay } from "./help.js"
 import {
-  COLLAPSE_STEPS,
   FRAME_MS,
   canAnimate,
-  collapseHeights,
+  settleFrames,
   filterFrames,
   stripFrames,
   type Frame as MotionFrame,
@@ -116,12 +115,9 @@ export const App = ({
   const [sorted, setSorted] = useState(false)
   const sortedRef = useRef(false)
   sortedRef.current = sorted
-  // The first load settles in steps on the board: every service has
-  // answered once `allIn`, each ok one collapses to its line where it
-  // stands, then one step moves the lines to the strip and the sort lands.
+  // Every service has answered once `allIn`; the sort lands then, in one
+  // step, and the layout change between the two is the settle transition.
   const [allIn, setAllIn] = useState(false)
-  const [steps, setSteps] = useState<Record<string, number>>({})
-  const [closing, setClosing] = useState(false)
   const finalOrder = useRef<string[]>([])
   // The view `v` last chose wins; the config's `view` is the start until
   // then.
@@ -302,80 +298,64 @@ export const App = ({
   }, [shape, cursor])
 
   // ── Motion ──────────────────────────────────────────────────────────
-  const onBoard = animate && view === "board"
-  const settling = onBoard && !sorted
   const isLine = (r?: ServiceRecord) =>
     r !== undefined && (r.indicator === "none" || r.indicator === "link")
-  const recordsRef = useRef(records)
-  recordsRef.current = records
 
   const finish = () => {
     setOrder(finalOrder.current)
     setSorted(true)
-    setClosing(false)
     setLoading(false)
     setUpdatedAt(new Date())
   }
 
-  // Each answered ok card steps down to its line on one shared clock.
+  // Everyone has answered: the sort lands at once. Cards stay cards until
+  // now; the settle frames below carry the change.
   useEffect(() => {
-    if (!settling) return
-    const timer = setInterval(() => {
-      setSteps((prev) => {
-        let next: Record<string, number> | null = null
-        for (const r of Object.values(recordsRef.current)) {
-          const at = prev[r.id] ?? 0
-          if (isLine(r) && at < COLLAPSE_STEPS)
-            (next ??= { ...prev })[r.id] = at + 1
-        }
-        return next ?? prev
-      })
-    }, FRAME_MS)
-    return () => clearInterval(timer)
-  }, [settling])
+    if (allIn && !sorted) finish()
+  }, [allIn, sorted])
 
-  // Everyone has answered: once the last collapse is done, one step moves
-  // the lines to the strip, then the sort lands.
-  useEffect(() => {
-    if (!allIn || sorted) return
-    if (!settling) return finish()
-    const collapsing = Object.values(records).some(
-      (r) => isLine(r) && (steps[r.id] ?? 0) < COLLAPSE_STEPS,
-    )
-    if (collapsing) return
-    if (!closing) return setClosing(true)
-    const timer = setTimeout(finish, FRAME_MS)
-    return () => clearTimeout(timer)
-  }, [allIn, sorted, settling, steps, records, closing])
-
-  // Filter changes and `z` on a settled board: a few frames between the old
-  // layout and the new one, set in the same render as the change.
+  // Whenever rows move, a few frames between the old layout and the new,
+  // set in the same render as the change: the sort landing, a filter, and
+  // `z` on the board. What leaves dims out, what arrives comes in dim.
   const [play, setPlay] = useState<{
     frames: MotionFrame[]
     at: number
   } | null>(null)
-  const [seen, setSeen] = useState({ tab, folded })
+  const [seen, setSeen] = useState({ tab, folded, sorted })
   const lastVisible = useRef(visible)
-  if (seen.tab !== tab || seen.folded !== folded) {
-    setSeen({ tab, folded })
-    if (onBoard && sorted) {
-      const before = lastVisible.current
-      const stripLines = (rs: Row[]) => {
-        const cards = rs.filter(isCard).length
-        const manual = rs.filter((r) => r.record?.indicator === "link").length
-        const strip = rs.length - cards - manual
-        return boardShape(rs, bodyW, true).lines.filter(
-          (l) => l.first >= cards && l.first < cards + strip,
-        ).length
-      }
-      const frames =
-        seen.tab !== tab
-          ? filterFrames(before, visible, isCard)
-          : folded
-            ? stripFrames(before, stripLines(before), true)
-            : stripFrames(visible, stripLines(visible), false)
-      setPlay(frames.length ? { frames, at: 0 } : null)
+  if (seen.tab !== tab || seen.folded !== folded || seen.sorted !== sorted) {
+    setSeen({ tab, folded, sorted })
+    const before = lastVisible.current
+    const onBoard = view === "board"
+    const stripLines = (rs: Row[]) => {
+      const cards = rs.filter(isCard).length
+      const manual = rs.filter((r) => r.record?.indicator === "link").length
+      const strip = rs.length - cards - manual
+      return boardShape(rs, bodyW, true).lines.filter(
+        (l) => l.first >= cards && l.first < cards + strip,
+      ).length
     }
+    const frames =
+      !animate || !onBoard
+        ? []
+        : seen.sorted !== sorted
+          ? sorted
+            ? settleFrames(
+                before,
+                visible,
+                onBoard ? before.filter((r) => isLine(r.record)) : [],
+              )
+            : []
+          : !sorted
+            ? []
+            : seen.tab !== tab
+              ? filterFrames(before, visible, onBoard ? isCard : () => false)
+              : !onBoard
+                ? []
+                : folded
+                  ? stripFrames(before, stripLines(before), true)
+                  : stripFrames(visible, stripLines(visible), false)
+    setPlay(frames.length ? { frames, at: 0 } : null)
   }
   useEffect(() => {
     lastVisible.current = visible
@@ -395,34 +375,17 @@ export const App = ({
   // A key press never waits on motion: it lands on the final state first.
   const settleNow = () => {
     if (play) setPlay(null)
-    if (!settling) return
-    setSteps(
-      Object.fromEntries(
-        Object.values(records)
-          .filter(isLine)
-          .map((r) => [r.id, COLLAPSE_STEPS]),
-      ),
-    )
-    if (allIn) finish()
   }
 
-  // What the board draws this frame, and where the cursor is among it.
+  // What this frame draws, and where the cursor is among it.
   const frame = play?.frames[play.at]
-  const boardRows =
-    frame?.rows ??
-    (settling && closing ? visible.filter((r) => !isLine(r.record)) : visible)
-  const boardMotion: Motion | undefined = frame
-    ? frame.motion
-    : settling
-      ? {
-          heights: collapseHeights(steps),
-          strip: closing ? visible.filter((r) => isLine(r.record)) : undefined,
-        }
-      : undefined
-  const boardCursor =
-    boardRows === visible
+  const shownRows = frame?.rows ?? visible
+  const shownSorted = frame?.sorted ?? sorted
+  const motion: Motion | undefined = frame?.motion
+  const shownCursor =
+    shownRows === visible
       ? cursor
-      : boardRows.findIndex((r) => r.service.id === visible[cursor]?.service.id)
+      : shownRows.findIndex((r) => r.service.id === visible[cursor]?.service.id)
 
   const openDetail = (id: string) => {
     setDetailId(id)
@@ -735,10 +698,10 @@ export const App = ({
             />
             <Box ref={paneRef} flexDirection="column" flexGrow={1}>
               <Overview
-                rows={view === "board" ? boardRows : visible}
+                rows={shownRows}
                 all={rows}
-                cursor={view === "board" ? boardCursor : cursor}
-                sorted={sorted}
+                cursor={shownCursor}
+                sorted={shownSorted}
                 sort={sort}
                 hidden={hidden}
                 note={source.note}
@@ -746,7 +709,7 @@ export const App = ({
                 focused={!onFilters}
                 empty={empty}
                 okHidden={view === "board" ? narrowed.hidden.folded : 0}
-                motion={view === "board" ? boardMotion : undefined}
+                motion={motion}
               />
             </Box>
           </Box>
