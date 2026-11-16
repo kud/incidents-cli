@@ -82,6 +82,23 @@ describe("cli without a terminal", () => {
     assert.equal(a.status, 1)
   })
 
+  it("--help gives examples and the exit codes, no false defaults", () => {
+    const r = run("--help")
+    assert.equal(r.status, 0)
+    assert.match(r.stdout, /^Examples:\n {2}\$ incidents /m)
+    assert.match(
+      r.stdout,
+      /^Exit codes:\n {2}0 {2}all clear\n {2}1 {2}.+\n {2}2 {2}usage/m,
+    )
+    assert.doesNotMatch(r.stdout, /default: false/)
+  })
+
+  it("a bad flag is a usage error, never read as trouble", () => {
+    assert.equal(run("--bogus").status, 2)
+    assert.equal(run("watch", "--bogus").status, 2)
+    assert.equal(run("--version").status, 0)
+  })
+
   it("--screen list prints the screen names", () => {
     const r = run("--screen", "list")
     assert.equal(r.status, 0)

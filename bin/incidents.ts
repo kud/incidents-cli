@@ -28,17 +28,36 @@ const resolveVersion = (): string => {
 const version = resolveVersion()
 const program = new Command()
 
+const EXAMPLES = `
+Examples:
+  $ incidents                       open the board, or the list
+  $ incidents github                open one service's page
+  $ incidents list                  print every service once, worst first
+  $ incidents list github --json    one service as JSON
+  $ incidents watch --interval 2    a line on stdout whenever a status changes
+
+Exit codes:
+  0  all clear
+  1  a service is in trouble, or its page could not be read
+  2  usage: an unknown service, flag or value
+`
+
+// A usage error exits 2, whichever part of the command line it is in, so a
+// script never reads a typo as an outage; help and --version still exit 0.
+program.exitOverride((error) => process.exit(error.exitCode ? 2 : 0))
+
 program
   .name("incidents")
   .description(
     "Which of the services you depend on are declaring trouble right now",
   )
   .version(version)
-  .option("--json", "print JSON records, never the interactive view", false)
-  .option("--mock", "use built-in fixtures instead of live status pages", false)
+  .option("--json", "print JSON records, never the interactive view")
+  .option("--mock", "use built-in fixtures instead of live status pages")
   .option("--screen <name>", "open directly on a screen (`list` prints them)")
   .argument("[service]", "open the interactive view on one service")
   .showHelpAfterError()
+  .addHelpText("after", EXAMPLES)
   .action((word: string | undefined, flags: Flags) =>
     run(() => open(word, flags, version)),
   )
