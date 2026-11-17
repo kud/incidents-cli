@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --import tsx --test 'test/**/*.test.ts' 'test/**/*.test.tsx'",
+    "test": "TZ=UTC LC_ALL=en_GB.UTF-8 LANG=en_GB.UTF-8 node --import tsx --test 'test/**/*.test.ts' 'test/**/*.test.tsx'",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
