@@ -25,7 +25,7 @@ It reads each vendor's own status page, worst first, and tells you what they hav
 - **Scriptable** — `--json` on every form, meaningful exit codes, static output whenever there is no TTY
 - **Configurable** — 21 built-in services, plus any Statuspage, RSS feed or plain link you add
 
-![The board: a filter column that doubles as the tally, a card per service in trouble, the healthy ones in a grid](assets/board.png)
+![The board: a filter column that doubles as the tally, a card per service in trouble, the healthy ones a line each](assets/board.png)
 
 ![The list (v): every service, worst first, with a preview of the selected one](assets/list.png)
 
