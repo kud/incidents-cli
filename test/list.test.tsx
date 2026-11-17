@@ -357,8 +357,8 @@ describe("list preview", () => {
       await tick(30)
     }
     const shown = await until(frame, /41 components/)
-    assert.match(shown, /● degraded {2}Edge cache/)
-    assert.match(shown, /● ok {8}41 components/)
+    assert.match(shown, /\uE0B6degraded\uE0B4 {2}Edge cache/)
+    assert.match(shown, /\uE0B6ok\uE0B4 {8}41 components/)
     assert.doesNotMatch(shown, /Ashmere/)
     assert.doesNotMatch(shown, /ok\s*…|…\s*│/)
     app.unmount()

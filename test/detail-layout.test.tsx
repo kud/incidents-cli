@@ -54,7 +54,12 @@ describe("detail page layout", () => {
       assert.equal(titles.slice(rule + 1, rule + 3), "  ")
       // Every left row starts on the header's icon column.
       const icon = lines.find((l) => l.includes("◆"))!.indexOf("◆")
-      for (const text of ["Now", "● major", "status.", "Open incidents"]) {
+      for (const text of [
+        "Now",
+        "\uE0B6major\uE0B4",
+        "status.",
+        "Open incidents",
+      ]) {
         const row = lines.find((l) => l.includes(text))!
         assert.equal(row.indexOf(text), icon, text)
       }
@@ -186,11 +191,11 @@ describe("components at scale", () => {
     )
     const lines = out.split("\n")
     const rows = lines.filter((l) =>
-      /^ {3}● (outage|partial|degraded) /.test(l.split("│")[0]),
+      /^ {3}\uE0B6(outage|partial|degraded)\uE0B4 /.test(l.split("│")[0]),
     )
     // Eight breakage rows, the outage first, then the rest counted.
     assert.equal(rows.length, 8, out)
-    assert.match(rows[0], /outage\s+Core API/)
+    assert.match(rows[0], /outage\uE0B4\s+Core API/)
     assert.match(out, /\+ 5 more/)
     assert.match(out, /In maintenance/)
     assert.match(out, /\+ 17 more/)
@@ -222,7 +227,7 @@ describe("components at scale", () => {
     assert.ok(Number(/(\d+) more below/.exec(note)![1]) > 17, note)
     assert.equal(
       note.search(/\d/),
-      lines.find((l) => /● ok/.test(l))!.indexOf("●"),
+      lines.find((l) => /\uE0B6ok\uE0B4/.test(l))!.indexOf("\uE0B6"),
     )
   })
 })

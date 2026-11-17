@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { Box, Text, useInput } from "ink"
-import { colors, type Span, type StyledLine } from "@kud/ink-ui"
+import { colors, type Span as InkSpan } from "@kud/ink-ui"
 import { ageOf, type ServiceRecord } from "../core/index.js"
 import {
   DISCLAIMER,
@@ -12,7 +12,13 @@ import {
 } from "../labels.js"
 import { hyperlink, visibleLength } from "../render.js"
 import { PaneTitle, Rule } from "./filter-column.js"
-import { INK, Pending, pendingWidth } from "./overview-parts.js"
+import {
+  INK,
+  Pending,
+  pendingWidth,
+  pillText,
+  StatusPill,
+} from "./overview-parts.js"
 
 const TONE: Record<Tone, string> = {
   error: colors.error,
@@ -23,6 +29,17 @@ const TONE: Record<Tone, string> = {
 }
 const GAP = 2
 const MAX = 110
+// A span may be a status pill: its text is what the pill draws, caps
+// included, so widths and plain-text reads hold, and the line renders the
+// pill itself in its place.
+export type Span = InkSpan & { pill?: Label }
+export type StyledLine = {
+  text: string
+  color?: string
+  bold?: boolean
+  dim?: boolean
+  spans?: Span[]
+}
 const BLANK: StyledLine = { text: "" }
 // A pane's content starts under the first letter of its title, one cell in,
 // where the page header's icon sits; rows under a heading sit two further in.
@@ -38,7 +55,7 @@ const AFTER_RULE = 2
 const SPLIT_MIN = 150
 const NOW_SHARE = 0.45
 
-type Cell = { text: string; color?: string; bold?: boolean }
+type Cell = { text: string; color?: string; bold?: boolean; pill?: Label }
 
 const pad = (text: string, width: number): string => {
   const chars = [...text]
@@ -49,10 +66,7 @@ const padStart = (text: string, width: number): string =>
   " ".repeat(Math.max(0, width - visibleLength(text))) + text
 const widest = (cells: string[]): number =>
   Math.max(0, ...cells.map(visibleLength))
-const tone = (label: Label): Cell => ({
-  text: withGlyph(label).text,
-  color: TONE[label.tone],
-})
+const tone = (label: Label): Cell => ({ text: pillText(label), pill: label })
 // When an open incident started, and for how long, in the one vocabulary
 // the app uses for a duration: "started 13:24 · 1h 12m".
 const started = (raw: string): string => {
@@ -96,7 +110,14 @@ const grid = (
     const spans: Span[] = [
       { text: " ".repeat(start) },
       ...(leadWidth
-        ? [{ ...lead, text: pad(lead.text, leadWidth + GAP) }]
+        ? [
+            lead,
+            {
+              text: " ".repeat(
+                Math.max(0, leadWidth + GAP - visibleLength(lead.text)),
+              ),
+            },
+          ]
         : []),
       { ...body, text: pad(body.text, bodyWidth) },
     ]
@@ -185,7 +206,7 @@ const headline = (record: ServiceRecord): StyledLine[] => {
       text: "",
       spans: [
         { text: " ".repeat(EDGE) },
-        { text: status.text, color: TONE[status.tone] },
+        tone(status),
         { text: "  " },
         { text: record.description, bold: true, color: INK },
       ],
@@ -318,8 +339,8 @@ const nowLines = (
 const sizes = (record: ServiceRecord) => {
   const { broken } = split(record)
   const leadWidth = widest([
-    ...broken.map((c) => withGlyph(wordLabel(c.status)).text),
-    ...record.active.map((i) => withGlyph(wordLabel(i.impact)).text),
+    ...broken.map((c) => pillText(wordLabel(c.status))),
+    ...record.active.map((i) => pillText(wordLabel(i.impact))),
   ])
   const tailWidth = widest(record.active.map((i) => started(i.date)))
   return { leadWidth, tailWidth }
@@ -456,11 +477,15 @@ export const sectionsLines = (
 const Line = ({ line }: { line: StyledLine }) =>
   line.spans ? (
     <Text wrap="truncate-end">
-      {line.spans.map((s, j) => (
-        <Text key={j} color={s.color} bold={s.bold} dimColor={s.dim}>
-          {s.text}
-        </Text>
-      ))}
+      {line.spans.map((s, j) =>
+        s.pill ? (
+          <StatusPill key={j} label={s.pill} />
+        ) : (
+          <Text key={j} color={s.color} bold={s.bold} dimColor={s.dim}>
+            {s.text}
+          </Text>
+        ),
+      )}
       {line.spans.length ? "" : " "}
     </Text>
   ) : (

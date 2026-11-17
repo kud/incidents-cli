@@ -3,8 +3,8 @@ import { Box, Text } from "ink"
 import { colors } from "@kud/ink-ui"
 import { isClear } from "../core/index.js"
 import { DISCLAIMER, statusLabel } from "../labels.js"
-import { hyperlink } from "../render.js"
-import type { Tone } from "../labels.js"
+import { hyperlink, visibleLength } from "../render.js"
+import type { Label } from "../labels.js"
 import {
   ageText,
   headline,
@@ -26,7 +26,8 @@ import {
   Marker,
   Pending,
   StatusCell,
-  TONE,
+  StatusPill,
+  pillText,
   pad,
   pendingWidth,
   useMeasuredHeight,
@@ -49,16 +50,14 @@ const STATUS_W = widest(
 // The widest age the clock gives: "9h 59m".
 const AGE_W = 6
 
-const componentWord = (
-  status: string,
-): { glyph: string; text: string; tone: Tone } =>
+const componentWord = (status: string): Label =>
   status === "operational"
-    ? { glyph: "●", text: "ok", tone: "success" }
+    ? { text: "ok", tone: "success" }
     : status === "under_maintenance"
-      ? { glyph: "◌", text: "maintenance", tone: "info" }
+      ? { text: "maintenance", tone: "info" }
       : status === "major_outage"
-        ? { glyph: "●", text: "outage", tone: "error" }
-        : { glyph: "●", text: "degraded", tone: "warning" }
+        ? { text: "outage", tone: "error" }
+        : { text: "degraded", tone: "warning" }
 
 // Worst first, then by name, as the detail page orders them; maintenance is
 // planned work and sits after the breakage.
@@ -117,16 +116,15 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
   const shown = broken.slice(0, COMPONENTS_SHOWN)
   // The status leads each row, so a long name is what gets cut, never the word.
   const wordW = widest([
-    ...shown.map((c) => componentWord(c.status).text),
-    ...(healthy ? ["ok"] : []),
+    ...shown.map((c) => pillText(componentWord(c.status))),
+    ...(healthy ? [pillText(componentWord("operational"))] : []),
   ])
   const componentRow = (key: string, status: string, text: string) => {
     const word = componentWord(status)
     return (
       <Text key={key} wrap="truncate-end">
-        <Text color={TONE[word.tone]}>
-          {word.glyph} {pad(word.text, wordW + GAP)}
-        </Text>
+        <StatusPill label={word} />
+        <Text>{" ".repeat(wordW + GAP - visibleLength(pillText(word)))}</Text>
         <Text color={INK}>{text}</Text>
       </Text>
     )
@@ -185,7 +183,7 @@ const Preview = ({ row, width }: { row?: Row; width: number }) => {
     if (broken.length > shown.length)
       lines.push(
         <Text key="more" color={colors.muted}>
-          {" ".repeat(2 + wordW + GAP)}+{broken.length - shown.length} more
+          {" ".repeat(wordW + GAP)}+{broken.length - shown.length} more
         </Text>,
       )
     if (healthy)

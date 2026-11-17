@@ -157,12 +157,12 @@ describe("detail vocabulary", () => {
     120,
   ).map(text)
 
-  it("gives every status word its glyph", () => {
+  it("gives every status word a pill", () => {
     const out = acme.join("\n")
-    assert.match(out, /● major {2}Partial System Outage/)
-    assert.match(out, / {3}● major {5}Elevated API error rates/)
-    assert.match(out, / {3}● outage {4}API/)
-    assert.match(out, / {3}● degraded {2}Dashboard/)
+    assert.match(out, /\uE0B6major\uE0B4 {2}Partial System Outage/)
+    assert.match(out, / {3}\uE0B6major\uE0B4 {5}Elevated API error rates/)
+    assert.match(out, / {3}\uE0B6outage\uE0B4 {4}API/)
+    assert.match(out, / {3}\uE0B6degraded\uE0B4 {2}Dashboard/)
   })
 
   it("counts the healthy rest under the components, indented", () => {

@@ -7,7 +7,7 @@ import {
 } from "react"
 import { Box, Text, measureElement, type DOMElement } from "ink"
 import { colors, Pill } from "@kud/ink-ui"
-import type { Tone } from "../labels.js"
+import type { Label, Tone } from "../labels.js"
 import type { Sort } from "../sort.js"
 import { visibleLength } from "../render.js"
 import {
@@ -251,30 +251,43 @@ export type OverviewProps = {
   motion?: import("./overview-board.js").Motion
 }
 
-// A status word, always a pill, so every status reads as one object; major
-// and critical take the strong pill, the loudest thing on the board. The
-// word carries the meaning in every form, and under NO_COLOR the pill falls
-// back to brackets.
+// The word a pill holds: the label without its glyph, which the pill's own
+// shape replaces.
+export const pillWord = (label: Label): string =>
+  label.text.replace(/^[●◌?↗] /, "")
+
+// What a status pill reads as in plain text, caps included, so a row that
+// lays pills out in columns prices them at the width they draw.
+export const pillText = (label: Label): string => `${pillWord(label)}`
+
+// A status word, always a pill, so every status reads as one object, on the
+// board, the list, the preview and the detail page alike. The error tone
+// (critical, major, an outage) takes the strong pill, the loudest thing on
+// screen. The word carries the meaning in every form, and under NO_COLOR the
+// pill falls back to brackets. A faded pill keeps its shape on the neutral
+// track, so it recedes without turning into plain text.
+export const StatusPill = ({
+  label,
+  faded = false,
+}: {
+  label: Label
+  faded?: boolean
+}) => (
+  <Pill
+    variant={label.tone}
+    tone="tonal"
+    strong={!faded && label.tone === "error"}
+    color={faded ? colors.track : undefined}
+  >
+    {pillWord(label)}
+  </Pill>
+)
+
+// A service's status on the overview.
 export const StatusTag = ({
   row,
   faded = false,
 }: {
   row: Row
   faded?: boolean
-}) => {
-  const label = labelOf(row)
-  const indicator = row.record?.indicator ?? ""
-  // The pill is as wide as glyph and word, so columns hold. A faded row
-  // keeps its pill on the neutral track, so it recedes without turning into
-  // plain text.
-  return (
-    <Pill
-      variant={label.tone}
-      tone="tonal"
-      strong={!faded && (indicator === "critical" || indicator === "major")}
-      color={faded ? colors.track : undefined}
-    >
-      {label.text.split(" ").slice(1).join(" ")}
-    </Pill>
-  )
-}
+}) => <StatusPill label={labelOf(row)} faded={faded} />

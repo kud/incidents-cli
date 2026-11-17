@@ -321,7 +321,7 @@ describe("page chrome", () => {
         const expected = detail
           ? columns >= 150
             ? ["Now", "History"]
-            : ["● minor"]
+            : ["\uE0B6minor\uE0B4"]
           : ["Filters", "Services"]
         for (const title of expected)
           assert.match(titles, new RegExp(title), done)
