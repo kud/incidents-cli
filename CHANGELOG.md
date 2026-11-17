@@ -4,6 +4,26 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.7.0 — 2026-11-17
+
+### Highlights
+
+- Pin the services you care about: `p` toggles a pin with a toast and remembers it, and `pinned: true` in the YAML config pins from the start. ([d241cb9](https://github.com/kud/incidents-cli/commit/d241cb9a33483f183fdf40062f0d159523d2067d))
+- Pinned services sit in a group at the top, always as cards with a muted ◆, worst status first and then pin order; `z` never folds a pin and status filters stay strict. Pins are not in `--json`. ([d241cb9](https://github.com/kud/incidents-cli/commit/d241cb9a33483f183fdf40062f0d159523d2067d))
+- Every status is now a pill, including ok, maintenance, unreadable and manual, the last as a faded pill on the neutral track. ([a1df69d](https://github.com/kud/incidents-cli/commit/a1df69db6d92fee48dc08a797363aa3c3f946c82))
+- The first board load keeps cards in place and settles to ok lines once at the end, in about 200ms, rather than collapsing as results arrive. ([1bea709](https://github.com/kud/incidents-cli/commit/1bea70914cf7e37d7f6929b0fc01c0f2b402b78e))
+- List rows fade out and in when you re-sort or change a filter. Motion is off under `NO_MOTION`, `NO_COLOR`, non-TTY, CI and `TERM=dumb`, and any key skips it. ([7a164fc](https://github.com/kud/incidents-cli/commit/7a164fc6e4352b752b856df2471fd512f2864cdf))
+
+### Fixes
+
+- A selected neutral card now gets a bright grey frame, so the selection stays visible. ([2faa02d](https://github.com/kud/incidents-cli/commit/2faa02db03d9a9b0cf4d2e93c46951c28cb3f3b9))
+
+### Documentation
+
+- The usage docs cover pinning, with the keys and the `pinned` config option. ([051b57e](https://github.com/kud/incidents-cli/commit/051b57ea669b08b800715f21bba9d9bd512efa51))
+
+---
+
 ## 0.6.2 — 2026-11-16
 
 ### Highlights
