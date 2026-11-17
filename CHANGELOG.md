@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 
 ---
 
+## 0.7.1 — 2026-11-17
+
+### Highlights
+
+- The detail view and the list preview now show statuses as the same pills as the board: header status, open incidents and affected components. ([5192e86](https://github.com/kud/incidents-cli/commit/5192e860cfcf68a8305e5a1ed78db25b7bddcb67))
+
+<details>
+<summary>Internal (1 commit)</summary>
+
+- Test runs pin the timezone and locale, so the suite no longer depends on the machine's clock format.
+
+</details>
+
+---
+
 ## 0.7.0 — 2026-11-17
 
 ### Highlights
