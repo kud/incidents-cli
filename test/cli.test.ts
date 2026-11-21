@@ -9,8 +9,12 @@ import { fileURLToPath } from "node:url"
 const bin = fileURLToPath(new URL("../bin/incidents.ts", import.meta.url))
 const home = mkdtempSync(join(tmpdir(), "incidents-cli-"))
 
-const run = (...args: string[]) =>
-  spawnSync(process.execPath, ["--import", "tsx", bin, ...args], {
+const frozenClock = fileURLToPath(
+  new URL("./fixtures/frozen-clock.ts", import.meta.url),
+)
+
+const spawn = (preload: string[], env: NodeJS.ProcessEnv, args: string[]) =>
+  spawnSync(process.execPath, ["--import", "tsx", ...preload, bin, ...args], {
     encoding: "utf8",
     timeout: 15_000,
     env: {
@@ -19,8 +23,16 @@ const run = (...args: string[]) =>
       INCIDENTS_CONFIG: "",
       NO_COLOR: "1",
       CI: "",
+      ...env,
     },
   })
+
+const run = (...args: string[]) => spawn([], {}, args)
+
+// Two processes compared line for line share one clock, so the mock's
+// absolute times cannot straddle a minute boundary between them.
+const runAt = (now: number, ...args: string[]) =>
+  spawn(["--import", frozenClock], { INCIDENTS_TEST_NOW: String(now) }, args)
 
 describe("cli without a terminal", () => {
   it("a bare call prints the classic overview and exits 1 when degraded", () => {
@@ -76,8 +88,9 @@ describe("cli without a terminal", () => {
   })
 
   it("CI set prints the plain detail, like list <service>", () => {
-    const a = run("acme-cloud", "--mock")
-    const b = run("list", "acme-cloud", "--mock")
+    const now = Date.now()
+    const a = runAt(now, "acme-cloud", "--mock")
+    const b = runAt(now, "list", "acme-cloud", "--mock")
     assert.equal(a.stdout, b.stdout)
     assert.equal(a.status, 1)
   })
