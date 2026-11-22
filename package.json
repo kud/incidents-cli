@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "tsx bin/incidents.ts",
     "build": "tsc -p tsconfig.build.json",
+    "demo:build": "bash scripts/demo-build.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -50,6 +51,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@kud/cli-shot": "0.3.0",
     "@types/js-yaml": "4.0.9",
     "@types/node": "24.3.1",
     "@types/react": "19.2.17",

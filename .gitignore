@@ -6,3 +6,4 @@ dist/
 .env.*
 .mcp.json
 .claude/
+demo/

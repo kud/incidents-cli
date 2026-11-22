@@ -223,6 +223,8 @@ npm test
 
 `scripts/shots.yml` describes the images above: each one is the same fixtures, captured with [vhs](https://github.com/charmbracelet/vhs) at 160 columns, nothing typed or prompted in frame.
 
+`npm run demo:build` writes the web demo to `demo/`: one recording per screen (`--screen list`), from the same fixtures, replayed in the browser by [cli-shot](https://github.com/kud/cli-shot). `vercel.json` serves it under `/projects/incidents-cli/demo`.
+
 ## Licence
 
 MIT
