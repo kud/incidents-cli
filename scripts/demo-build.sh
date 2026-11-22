@@ -3,11 +3,11 @@
 # (invented services only), plus cli-shot's static replay page. Served at
 # kud.io/projects/incidents-cli/demo through the rewrites in vercel.json.
 #
-# cli-shot is not on npm yet and its git branch ships no dist/, so it is
+# cli-shot is not on npm yet and its repository ships no dist/, so it is
 # cloned and built here. CLI_SHOT_REF picks another branch or tag.
 set -euo pipefail
 
-ref="${CLI_SHOT_REF:-feat/cast-and-web-player}"
+ref="${CLI_SHOT_REF:-main}"
 tool=".cli-shot"
 
 rm -rf "$tool"
