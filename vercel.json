@@ -1,0 +1,28 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "npm run demo:build",
+  "outputDirectory": "demo",
+  "rewrites": [
+    {
+      "source": "/projects/incidents-cli/demo",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/projects/incidents-cli/demo/:path*",
+      "destination": "/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*).cast",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/x-asciicast; charset=utf-8"
+        }
+      ]
+    }
+  ]
+}
